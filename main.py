@@ -14,12 +14,14 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from agnes import (
     VAD,
     AudioRecorder,
+    ChatHistory,
     ConfigLoader,
     LocalWhisperProvider,
     OllamaProvider,
     OpenAIProvider,
     OpenAIWhisperProvider,
     OpenVINOProvider,
+    PromptTemplates,
     get_logger,
 )
 
@@ -42,6 +44,7 @@ class AgnesAgent:
         self.asr_provider = None
         self.audio_recorder = None
         self.vad = None
+        self.chat_history = None
 
     async def _init_llm_provider(self):
         """初始化 LLM Provider"""
@@ -120,15 +123,23 @@ class AgnesAgent:
         await self._init_asr_provider()
         self._init_audio()
 
+        # 初始化对话历史
+        self.chat_history = ChatHistory(max_messages=20)
+
         self.logger.info("AgnesAgent initialized successfully")
 
-    async def chat(self, user_input: str, system_prompt: str | None = None):
+    def set_system_prompt(self, system_prompt: str):
+        """设置系统提示词"""
+        if self.chat_history:
+            self.chat_history.add_system_message(system_prompt)
+
+    async def chat(self, user_input: str, use_history: bool = True):
         """
-        简单的对话方法
+        对话方法（支持对话历史）
 
         Args:
             user_input: 用户输入
-            system_prompt: 系统提示词
+            use_history: 是否使用对话历史
 
         Returns:
             LLMResponse: 模型响应
@@ -138,23 +149,32 @@ class AgnesAgent:
 
         self.logger.info(f"User input: {user_input}")
 
-        response = await self.llm_provider.generate(
-            prompt=user_input,
-            system_prompt=system_prompt,
-            temperature=self.config.llm.temperature,
-            max_tokens=self.config.llm.max_tokens,
-        )
+        if use_history and self.chat_history:
+            self.chat_history.add_user_message(user_input)
+            messages = self.chat_history.to_openai_format()
+            response = await self.llm_provider.chat(
+                messages=messages,
+                temperature=self.config.llm.temperature,
+                max_tokens=self.config.llm.max_tokens,
+            )
+            self.chat_history.add_assistant_message(response.content)
+        else:
+            response = await self.llm_provider.generate(
+                prompt=user_input,
+                temperature=self.config.llm.temperature,
+                max_tokens=self.config.llm.max_tokens,
+            )
 
         self.logger.info(f"Assistant response: {response.content}")
         return response
 
-    async def chat_stream(self, user_input: str, system_prompt: str | None = None):
+    async def chat_stream(self, user_input: str, use_history: bool = True):
         """
-        流式对话方法
+        流式对话方法（支持对话历史）
 
         Args:
             user_input: 用户输入
-            system_prompt: 系统提示词
+            use_history: 是否使用对话历史
 
         Yields:
             str: 生成的文本片段
@@ -164,13 +184,32 @@ class AgnesAgent:
 
         self.logger.info(f"User input (streaming): {user_input}")
 
-        async for token in self.llm_provider.generate_stream(
-            prompt=user_input,
-            system_prompt=system_prompt,
-            temperature=self.config.llm.temperature,
-            max_tokens=self.config.llm.max_tokens,
-        ):
-            yield token
+        full_response = []
+
+        if use_history and self.chat_history:
+            self.chat_history.add_user_message(user_input)
+            messages = self.chat_history.to_openai_format()
+            async for token in self.llm_provider.chat_stream(
+                messages=messages,
+                temperature=self.config.llm.temperature,
+                max_tokens=self.config.llm.max_tokens,
+            ):
+                full_response.append(token)
+                yield token
+            self.chat_history.add_assistant_message("".join(full_response))
+        else:
+            async for token in self.llm_provider.generate_stream(
+                prompt=user_input,
+                temperature=self.config.llm.temperature,
+                max_tokens=self.config.llm.max_tokens,
+            ):
+                yield token
+
+    def clear_history(self):
+        """清空对话历史"""
+        if self.chat_history:
+            self.chat_history.clear()
+            self.logger.info("Chat history cleared")
 
     async def listen_and_transcribe(self, duration: float | None = None):
         """
@@ -255,39 +294,148 @@ class AgnesAgent:
         await self.close()
 
 
+async def interactive_chat(agent: AgnesAgent):
+    """交互式对话模式"""
+    print("\n" + "=" * 50)
+    print("Agnes 交互式对话")
+    print("=" * 50)
+    print("输入 'quit' 或 'exit' 退出")
+    print("输入 'clear' 清空对话历史")
+    print("输入 'stream' 切换流式输出模式")
+    print("=" * 50 + "\n")
+
+    use_stream = False
+
+    while True:
+        try:
+            user_input = input("你: ").strip()
+
+            if not user_input:
+                continue
+
+            if user_input.lower() in ["quit", "exit"]:
+                print("再见！")
+                break
+
+            if user_input.lower() == "clear":
+                agent.clear_history()
+                print("对话历史已清空\n")
+                continue
+
+            if user_input.lower() == "stream":
+                use_stream = not use_stream
+                print(f"流式输出: {'开启' if use_stream else '关闭'}\n")
+                continue
+
+            print("Agnes: ", end="", flush=True)
+
+            if use_stream:
+                async for token in agent.chat_stream(user_input):
+                    print(token, end="", flush=True)
+                print()
+            else:
+                response = await agent.chat(user_input)
+                print(response.content)
+            print()
+
+        except KeyboardInterrupt:
+            print("\n\n再见！")
+            break
+        except Exception as e:
+            print(f"\n错误: {e}\n")
+
+
+async def run_demo(agent: AgnesAgent):
+    """运行演示"""
+    print("\n" + "=" * 50)
+    print("AgnesAgent 演示")
+    print("=" * 50)
+
+    # 设置默认系统提示词
+    agent.set_system_prompt(PromptTemplates.DEFAULT_ASSISTANT.template)
+
+    # 演示 1: 简单对话
+    print("\n[演示 1] 简单对话")
+    print("-" * 50)
+    response = await agent.chat("你好，请介绍一下你自己。", use_history=False)
+    print("你: 你好，请介绍一下你自己。")
+    print(f"Agnes: {response.content}")
+
+    # 演示 2: 多轮对话
+    print("\n[演示 2] 多轮对话（使用历史记录）")
+    print("-" * 50)
+    agent.clear_history()
+    agent.set_system_prompt(PromptTemplates.DEFAULT_ASSISTANT.template)
+
+    response1 = await agent.chat("我叫小明")
+    print("你: 我叫小明")
+    print(f"Agnes: {response1.content}")
+
+    response2 = await agent.chat("我叫什么名字？")
+    print("你: 我叫什么名字？")
+    print(f"Agnes: {response2.content}")
+
+    # 演示 3: 流式输出
+    print("\n[演示 3] 流式输出")
+    print("-" * 50)
+    agent.clear_history()
+    print("你: 讲一个关于机器人的短故事")
+    print("Agnes: ", end="", flush=True)
+    async for token in agent.chat_stream("讲一个关于机器人的短故事"):
+        print(token, end="", flush=True)
+    print()
+
+    # 演示 4: 角色模板
+    print("\n[演示 4] 使用角色模板 - 编程专家")
+    print("-" * 50)
+    agent.clear_history()
+    agent.set_system_prompt(PromptTemplates.CODE_EXPERT.template)
+    response = await agent.chat("用 Python 写一个快速排序算法")
+    print("你: 用 Python 写一个快速排序算法")
+    print(f"Agnes:\n{response.content}")
+
+    print("\n" + "=" * 50)
+    print("演示完成！")
+    print("=" * 50)
+
+
 async def main():
     """主函数 - 演示用法"""
     import argparse
 
     parser = argparse.ArgumentParser(description="AgnesAgent - AI Agent Infrastructure")
-    parser.add_argument("--config", default="config.yaml", help="Path to config file")
+    parser.add_argument("--config", default="config/config.yaml", help="Path to config file")
     parser.add_argument("--demo", action="store_true", help="Run demo")
+    parser.add_argument("--chat", action="store_true", help="Interactive chat mode")
+    parser.add_argument(
+        "--list-templates", action="store_true", help="List available prompt templates"
+    )
     args = parser.parse_args()
+
+    if args.list_templates:
+        print("可用的提示词模板:\n")
+        for template in PromptTemplates.list_templates():
+            print(f"  - {template.name}: {template.description}")
+        return
 
     if not os.path.exists(args.config):
         print(f"Config file not found: {args.config}")
-        print(f"Please copy config.yaml.example to {args.config} and edit it.")
+        print(f"Please copy config/config.yaml.example to {args.config} and edit it.")
         return
 
-    if args.demo:
-        async with AgnesAgent(args.config) as agent:
-            # 简单文本对话演示
-            print("\n=== 文本对话演示 ===")
-            response = await agent.chat(
-                "你好，请介绍一下你自己。", system_prompt="你是 Agnes，一个友好的 AI 助手。"
-            )
-            print(f"Agnes: {response.content}")
-
-            # 流式输出演示
-            print("\n=== 流式输出演示 ===")
-            print("Agnes: ", end="", flush=True)
-            async for token in agent.chat_stream("讲一个短故事"):
-                print(token, end="", flush=True)
+    async with AgnesAgent(args.config) as agent:
+        if args.demo:
+            await run_demo(agent)
+        elif args.chat:
+            await interactive_chat(agent)
+        else:
+            print("AgnesAgent - 高度可扩展、跨平台的 AI Agent 基础架构")
             print()
-    else:
-        print("AgnesAgent - 高度可扩展、跨平台的 AI Agent 基础架构")
-        print("使用 --demo 参数运行演示")
-        print("使用 --config 参数指定配置文件")
+            print("使用方式:")
+            print("  --demo           运行演示")
+            print("  --chat           交互式对话模式")
+            print("  --list-templates 列出可用的提示词模板")
+            print("  --config FILE    指定配置文件")
 
 
 if __name__ == "__main__":

@@ -1,4 +1,14 @@
-from .core import ASRProvider, ASRResponse, LLMProvider, LLMResponse, Streamer
+from .core import (
+    ASRProvider,
+    ASRResponse,
+    ChatHistory,
+    ChatMessage,
+    LLMProvider,
+    LLMResponse,
+    PromptTemplate,
+    PromptTemplates,
+    Streamer,
+)
 from .providers import (
     LocalWhisperProvider,
     OllamaProvider,
@@ -15,6 +25,10 @@ __all__ = [
     "ASRProvider",
     "ASRResponse",
     "Streamer",
+    "ChatHistory",
+    "ChatMessage",
+    "PromptTemplate",
+    "PromptTemplates",
     "OllamaProvider",
     "OpenAIProvider",
     "OpenVINOProvider",

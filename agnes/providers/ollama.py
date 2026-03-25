@@ -5,8 +5,6 @@ import aiohttp
 
 from agnes.core import LLMProvider, LLMResponse
 
-chat_url = "v1/chat/completions"
-
 
 class OllamaProvider(LLMProvider):
     """Ollama LLM Provider，支持本地模型调用"""
@@ -40,45 +38,14 @@ class OllamaProvider(LLMProvider):
         max_tokens: int | None = None,
         **kwargs,
     ) -> LLMResponse:
-        full_prompt = prompt
+        messages = []
         if system_prompt:
-            full_prompt = f"{system_prompt}\n\n{prompt}"
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
 
-        payload = {
-            "model": self.model,
-            "prompt": full_prompt,
-            "stream": False,
-            "options": {
-                "temperature": temperature,
-            },
-        }
-
-        if max_tokens:
-            payload["options"]["num_predict"] = max_tokens
-
-        session = await self._get_session()
-
-        try:
-            url = f"{self.base_url}/{chat_url}"
-            async with session.post(
-                url,
-                json=payload,
-                proxy=self.proxy,
-                timeout=aiohttp.ClientTimeout(total=300),
-            ) as response:
-                response.raise_for_status()
-                data = await response.json()
-
-                return LLMResponse(
-                    content=data.get("response", ""),
-                    model=self.model,
-                    usage={
-                        "prompt_tokens": data.get("prompt_eval_count", 0),
-                        "completion_tokens": data.get("eval_count", 0),
-                    },
-                )
-        except Exception as e:
-            raise RuntimeError(f"Ollama generation failed: {str(e)}")
+        return await self.chat(
+            messages=messages, temperature=temperature, max_tokens=max_tokens, **kwargs
+        )
 
     async def generate_stream(
         self,
@@ -88,42 +55,15 @@ class OllamaProvider(LLMProvider):
         max_tokens: int | None = None,
         **kwargs,
     ) -> AsyncGenerator[str, None]:
-        full_prompt = prompt
+        messages = []
         if system_prompt:
-            full_prompt = f"{system_prompt}\n\n{prompt}"
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
 
-        payload = {
-            "model": self.model,
-            "prompt": full_prompt,
-            "stream": True,
-            "options": {
-                "temperature": temperature,
-            },
-        }
-
-        if max_tokens:
-            payload["options"]["num_predict"] = max_tokens
-
-        session = await self._get_session()
-
-        try:
-            url = f"{self.base_url}/{chat_url}"
-            async with session.post(
-                url,
-                json=payload,
-                proxy=self.proxy,
-                timeout=aiohttp.ClientTimeout(total=300),
-            ) as response:
-                response.raise_for_status()
-                async for line in response.content:
-                    if line.strip():
-                        data = json.loads(line)
-                        if "response" in data:
-                            yield data["response"]
-                        if data.get("done", False):
-                            break
-        except Exception as e:
-            raise RuntimeError(f"Ollama stream generation failed: {str(e)}")
+        async for token in self.chat_stream(
+            messages=messages, temperature=temperature, max_tokens=max_tokens, **kwargs
+        ):
+            yield token
 
     async def chat(
         self,
