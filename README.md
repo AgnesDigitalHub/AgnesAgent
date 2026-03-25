@@ -9,6 +9,7 @@
 - **对话历史管理**：支持多轮对话，自动裁剪历史记录
 - **提示词模板**：内置多种角色模板（默认助手、VTuber、编程专家、翻译）
 - **流式输出**：支持实时流式响应
+- **Web UI**：内置 Web 界面，可在浏览器中配置和使用
 - **配置化**：YAML 配置文件，易于扩展
 
 ## 快速开始
@@ -24,12 +25,32 @@ cp config/config.yaml.example config/config.yaml
 
 # 列出可用的提示词模板
 uv run main.py --list-templates
+```
 
-# 运行演示
-uv run main.py --demo
+## 使用方式
 
-# 交互式对话
+### 1. Web 模式（推荐）
+
+#### 简单模式 - 仅端口输出
+```bash
+uv run main.py --web --no-select
+```
+
+#### Web 控制台模式 - 自动打开浏览器
+```bash
+uv run main.py --web --no-select
+```
+
+启动后，访问 http://127.0.0.1:8000 在浏览器中配置 LLM 并开始使用。
+
+### 2. 交互式对话模式
+
+```bash
+# 完整配置模式
 uv run main.py --chat
+
+# 使用默认配置直接启动
+uv run main.py --chat --no-select
 ```
 
 ## 使用示例

@@ -22,6 +22,7 @@ from agnes import (
     OpenAIWhisperProvider,
     OpenVINOProvider,
     PromptTemplates,
+    ProviderSelector,
     get_logger,
 )
 
@@ -29,7 +30,14 @@ from agnes import (
 class AgnesAgent:
     """Agnes Agent 主类"""
 
-    def __init__(self, config_path: str = "config.yaml"):
+    def __init__(self, config_path: str = "config.yaml", auto_initialize: bool = False):
+        """
+        初始化 AgnesAgent
+
+        Args:
+            config_path: 配置文件路径
+            auto_initialize: 是否自动初始化所有组件（向后兼容）
+        """
         self.config_loader = ConfigLoader(config_path)
         self.config = self.config_loader.config
 
@@ -46,51 +54,71 @@ class AgnesAgent:
         self.vad = None
         self.chat_history = None
 
-    async def _init_llm_provider(self):
-        """初始化 LLM Provider"""
-        provider_type = self.config.llm.provider
+        # 向后兼容：如果设置了 auto_initialize，则自动初始化
+        if auto_initialize:
+            self.logger.info("auto_initialize=True，将在 __aenter__ 中自动初始化所有组件")
+
+    async def _init_llm_provider(self, llm_config=None):
+        """
+        初始化 LLM Provider
+
+        Args:
+            llm_config: 可选的 LLM 配置，如果为 None 则使用配置文件中的设置
+        """
+        config = llm_config or self.config.llm
+        provider_type = config.provider
 
         if provider_type == "ollama":
             self.llm_provider = OllamaProvider(
-                base_url=self.config.llm.base_url or "http://localhost:11434",
-                model=self.config.llm.model,
+                base_url=config.base_url or "http://localhost:11434",
+                model=config.model,
                 proxy=self.config.proxy.http_proxy,
             )
         elif provider_type == "openai":
-            if not self.config.llm.api_key:
+            if not config.api_key:
                 raise ValueError("OpenAI API key is required")
             self.llm_provider = OpenAIProvider(
-                api_key=self.config.llm.api_key,
-                base_url=self.config.llm.base_url or "https://api.openai.com/v1",
-                model=self.config.llm.model,
+                api_key=config.api_key,
+                base_url=config.base_url or "https://api.openai.com/v1",
+                model=config.model,
                 proxy=self.config.proxy.http_proxy,
             )
         elif provider_type == "openvino":
-            self.llm_provider = OpenVINOProvider(model_name_or_path=self.config.llm.model)
+            self.llm_provider = OpenVINOProvider(model_name_or_path=config.model)
         else:
             raise ValueError(f"Unknown LLM provider: {provider_type}")
 
+        # 更新配置
+        self.config.llm = config
         self.logger.info(f"Initialized LLM provider: {provider_type}")
 
-    async def _init_asr_provider(self):
-        """初始化 ASR Provider"""
-        provider_type = self.config.asr.provider
+    async def _init_asr_provider(self, asr_config=None):
+        """
+        初始化 ASR Provider
+
+        Args:
+            asr_config: 可选的 ASR 配置，如果为 None 则使用配置文件中的设置
+        """
+        config = asr_config or self.config.asr
+        provider_type = config.provider
 
         if provider_type == "local_whisper":
             self.asr_provider = LocalWhisperProvider(
-                model_size=self.config.asr.model, use_openvino=self.config.asr.use_openvino
+                model_size=config.model, use_openvino=config.use_openvino
             )
         elif provider_type == "openai_whisper":
-            if not self.config.asr.api_key:
+            if not config.api_key:
                 raise ValueError("OpenAI API key is required for ASR")
             self.asr_provider = OpenAIWhisperProvider(
-                api_key=self.config.asr.api_key,
-                base_url=self.config.asr.base_url or "https://api.openai.com/v1",
+                api_key=config.api_key,
+                base_url=config.base_url or "https://api.openai.com/v1",
                 proxy=self.config.proxy.http_proxy,
             )
         else:
             raise ValueError(f"Unknown ASR provider: {provider_type}")
 
+        # 更新配置
+        self.config.asr = config
         self.logger.info(f"Initialized ASR provider: {provider_type}")
 
     def _init_audio(self):
@@ -115,18 +143,71 @@ class AgnesAgent:
 
         self.logger.info("Initialized audio components")
 
-    async def initialize(self):
-        """初始化所有组件"""
-        self.logger.info("Initializing AgnesAgent...")
+    async def initialize(self, init_llm: bool = True, init_asr: bool = True, init_audio: bool = True):
+        """
+        初始化组件（按需初始化）
 
-        await self._init_llm_provider()
-        await self._init_asr_provider()
-        self._init_audio()
+        Args:
+            init_llm: 是否初始化 LLM
+            init_asr: 是否初始化 ASR
+            init_audio: 是否初始化音频组件
+        """
+        self.logger.info("Initializing AgnesAgent components...")
+
+        if init_llm:
+            await self._init_llm_provider()
+        if init_asr:
+            await self._init_asr_provider()
+        if init_audio:
+            self._init_audio()
 
         # 初始化对话历史
-        self.chat_history = ChatHistory(max_messages=20)
+        if self.chat_history is None:
+            self.chat_history = ChatHistory(max_messages=20)
 
-        self.logger.info("AgnesAgent initialized successfully")
+        self.logger.info("AgnesAgent components initialized")
+
+    async def setup_llm(self, llm_config=None):
+        """
+        设置/切换 LLM Provider
+
+        Args:
+            llm_config: LLM 配置，如果为 None 则使用配置文件中的设置
+        """
+        # 关闭现有的 LLM provider
+        if self.llm_provider and hasattr(self.llm_provider, "close"):
+            await self.llm_provider.close()
+
+        await self._init_llm_provider(llm_config)
+
+    async def setup_asr(self, asr_config=None):
+        """
+        设置/切换 ASR Provider
+
+        Args:
+            asr_config: ASR 配置，如果为 None 则使用配置文件中的设置
+        """
+        # 关闭现有的 ASR provider
+        if self.asr_provider and hasattr(self.asr_provider, "close"):
+            await self.asr_provider.close()
+
+        await self._init_asr_provider(asr_config)
+
+    async def setup_audio(self):
+        """设置音频组件"""
+        self._init_audio()
+
+    def get_current_llm_provider_name(self) -> str | None:
+        """获取当前 LLM provider 名称"""
+        if self.llm_provider:
+            return self.config.llm.provider
+        return None
+
+    def get_current_asr_provider_name(self) -> str | None:
+        """获取当前 ASR provider 名称"""
+        if self.asr_provider:
+            return self.config.asr.provider
+        return None
 
     def set_system_prompt(self, system_prompt: str):
         """设置系统提示词"""
@@ -145,7 +226,7 @@ class AgnesAgent:
             LLMResponse: 模型响应
         """
         if not self.llm_provider:
-            raise RuntimeError("LLM provider not initialized")
+            raise RuntimeError("LLM provider not initialized. Please call setup_llm() first.")
 
         self.logger.info(f"User input: {user_input}")
 
@@ -180,7 +261,7 @@ class AgnesAgent:
             str: 生成的文本片段
         """
         if not self.llm_provider:
-            raise RuntimeError("LLM provider not initialized")
+            raise RuntimeError("LLM provider not initialized. Please call setup_llm() first.")
 
         self.logger.info(f"User input (streaming): {user_input}")
 
@@ -221,8 +302,10 @@ class AgnesAgent:
         Returns:
             ASRResponse: 转录结果
         """
-        if not self.asr_provider or not self.audio_recorder:
-            raise RuntimeError("ASR or audio components not initialized")
+        if not self.asr_provider:
+            raise RuntimeError("ASR provider not initialized. Please call setup_asr() first.")
+        if not self.audio_recorder:
+            raise RuntimeError("Audio components not initialized. Please call setup_audio() first.")
 
         self.logger.info("Listening...")
 
@@ -278,16 +361,16 @@ class AgnesAgent:
         """关闭所有资源"""
         self.logger.info("Shutting down AgnesAgent...")
 
-        if hasattr(self.llm_provider, "close"):
+        if self.llm_provider and hasattr(self.llm_provider, "close"):
             await self.llm_provider.close()
 
-        if hasattr(self.asr_provider, "close"):
+        if self.asr_provider and hasattr(self.asr_provider, "close"):
             await self.asr_provider.close()
 
         self.logger.info("AgnesAgent shut down")
 
     async def __aenter__(self):
-        await self.initialize()
+        # 向后兼容：保持原有行为，但延迟初始化
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
@@ -295,20 +378,30 @@ class AgnesAgent:
 
 
 async def interactive_chat(agent: AgnesAgent):
-    """交互式对话模式"""
-    print("\n" + "=" * 50)
+    """交互式对话模式 - 支持启动菜单和运行时切换"""
+    print("\n" + "=" * 60)
     print("Agnes 交互式对话")
-    print("=" * 50)
-    print("输入 'quit' 或 'exit' 退出")
-    print("输入 'clear' 清空对话历史")
-    print("输入 'stream' 切换流式输出模式")
-    print("=" * 50 + "\n")
+    print("=" * 60)
+    print("特殊命令:")
+    print("  'quit' / 'exit'  - 退出")
+    print("  'clear'           - 清空对话历史")
+    print("  'stream'          - 切换流式输出模式")
+    print("  'switch llm'      - 切换 LLM Provider")
+    print("  'switch asr'      - 切换 ASR Provider")
+    print("  'status'          - 查看当前状态")
+    print("=" * 60 + "\n")
 
     use_stream = False
 
     while True:
         try:
-            user_input = input("你: ").strip()
+            # 显示当前状态
+            ProviderSelector.print_current_providers(
+                agent.get_current_llm_provider_name(),
+                agent.get_current_asr_provider_name()
+            )
+
+            user_input = input("\n你: ").strip()
 
             if not user_input:
                 continue
@@ -325,6 +418,29 @@ async def interactive_chat(agent: AgnesAgent):
             if user_input.lower() == "stream":
                 use_stream = not use_stream
                 print(f"流式输出: {'开启' if use_stream else '关闭'}\n")
+                continue
+
+            if user_input.lower() == "status":
+                continue
+
+            if user_input.lower().startswith("switch llm"):
+                llm_config = ProviderSelector.select_llm_provider(agent.config)
+                await agent.setup_llm(llm_config)
+                print(f"\n已切换到 LLM Provider: {llm_config.provider}\n")
+                continue
+
+            if user_input.lower().startswith("switch asr"):
+                asr_config = ProviderSelector.select_asr_provider(agent.config)
+                await agent.setup_asr(asr_config)
+                print(f"\n已切换到 ASR Provider: {asr_config.provider}\n")
+                continue
+
+            # 检查 LLM 是否已初始化
+            if not agent.llm_provider:
+                print("\nLLM Provider 未初始化，请先配置！")
+                llm_config = ProviderSelector.select_llm_provider(agent.config)
+                await agent.setup_llm(llm_config)
+                print(f"\n已初始化 LLM Provider: {llm_config.provider}\n")
                 continue
 
             print("Agnes: ", end="", flush=True)
@@ -345,59 +461,6 @@ async def interactive_chat(agent: AgnesAgent):
             print(f"\n错误: {e}\n")
 
 
-async def run_demo(agent: AgnesAgent):
-    """运行演示"""
-    print("\n" + "=" * 50)
-    print("AgnesAgent 演示")
-    print("=" * 50)
-
-    # 设置默认系统提示词
-    agent.set_system_prompt(PromptTemplates.DEFAULT_ASSISTANT.template)
-
-    # 演示 1: 简单对话
-    print("\n[演示 1] 简单对话")
-    print("-" * 50)
-    response = await agent.chat("你好，请介绍一下你自己。", use_history=False)
-    print("你: 你好，请介绍一下你自己。")
-    print(f"Agnes: {response.content}")
-
-    # 演示 2: 多轮对话
-    print("\n[演示 2] 多轮对话（使用历史记录）")
-    print("-" * 50)
-    agent.clear_history()
-    agent.set_system_prompt(PromptTemplates.DEFAULT_ASSISTANT.template)
-
-    response1 = await agent.chat("我叫小明")
-    print("你: 我叫小明")
-    print(f"Agnes: {response1.content}")
-
-    response2 = await agent.chat("我叫什么名字？")
-    print("你: 我叫什么名字？")
-    print(f"Agnes: {response2.content}")
-
-    # 演示 3: 流式输出
-    print("\n[演示 3] 流式输出")
-    print("-" * 50)
-    agent.clear_history()
-    print("你: 讲一个关于机器人的短故事")
-    print("Agnes: ", end="", flush=True)
-    async for token in agent.chat_stream("讲一个关于机器人的短故事"):
-        print(token, end="", flush=True)
-    print()
-
-    # 演示 4: 角色模板
-    print("\n[演示 4] 使用角色模板 - 编程专家")
-    print("-" * 50)
-    agent.clear_history()
-    agent.set_system_prompt(PromptTemplates.CODE_EXPERT.template)
-    response = await agent.chat("用 Python 写一个快速排序算法")
-    print("你: 用 Python 写一个快速排序算法")
-    print(f"Agnes:\n{response.content}")
-
-    print("\n" + "=" * 50)
-    print("演示完成！")
-    print("=" * 50)
-
 
 async def main():
     """主函数 - 演示用法"""
@@ -405,11 +468,16 @@ async def main():
 
     parser = argparse.ArgumentParser(description="AgnesAgent - AI Agent Infrastructure")
     parser.add_argument("--config", default="config/config.yaml", help="Path to config file")
-    parser.add_argument("--demo", action="store_true", help="Run demo")
     parser.add_argument("--chat", action="store_true", help="Interactive chat mode")
     parser.add_argument(
         "--list-templates", action="store_true", help="List available prompt templates"
     )
+    parser.add_argument(
+        "--no-select", action="store_true", help="Skip provider selection menu (use config directly)"
+    )
+    parser.add_argument("--web", action="store_true", help="Start web server")
+    parser.add_argument("--host", default="127.0.0.1", help="Web server host")
+    parser.add_argument("--port", type=int, default=8000, help="Web server port")
     args = parser.parse_args()
 
     if args.list_templates:
@@ -424,18 +492,42 @@ async def main():
         return
 
     async with AgnesAgent(args.config) as agent:
-        if args.demo:
-            await run_demo(agent)
-        elif args.chat:
+        # 初始化对话历史
+        if agent.chat_history is None:
+            agent.chat_history = ChatHistory(max_messages=20)
+
+        llm_config = None
+        asr_config = None
+
+        # 显示启动菜单（除非使用 --no-select）
+        if args.chat and not args.no_select:
+            llm_config, asr_config = ProviderSelector.show_start_menu(agent.config)
+
+        # 初始化选择的 provider
+        if llm_config:
+            await agent.setup_llm(llm_config)
+        if asr_config:
+            await agent.setup_asr(asr_config)
+
+        if args.chat:
             await interactive_chat(agent)
+        elif args.web:
+            try:
+                from agnes.web_server import start_web_server
+                await start_web_server(agent, args.host, args.port)
+            except ImportError:
+                print("Web dependencies not installed!")
+                print("Please install with: pip install -e .[web]")
+                return
         else:
             print("AgnesAgent - 高度可扩展、跨平台的 AI Agent 基础架构")
             print()
             print("使用方式:")
-            print("  --demo           运行演示")
             print("  --chat           交互式对话模式")
+            print("  --web            启动 Web 服务器")
             print("  --list-templates 列出可用的提示词模板")
             print("  --config FILE    指定配置文件")
+            print("  --no-select      跳过 provider 选择菜单")
 
 
 if __name__ == "__main__":

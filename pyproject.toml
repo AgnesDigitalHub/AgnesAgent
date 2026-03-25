@@ -1,9 +1,9 @@
 [project]
 name = "agnesagent"
-version = "0.1.0"
+version = "0.0.1"
 description = "Highly extensible, cross-platform AI agent infrastructure"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 dependencies = [
     "aiohttp>=3.9.0",
     "numpy>=1.24.0",
@@ -21,6 +21,13 @@ openvino = [
 ]
 whisper = [
     "whisper>=1.1.10",
+]
+web = [
+    "fastapi>=0.110.0",
+    "uvicorn>=0.29.0",
+    "jinja2>=3.1.0",
+    "python-multipart>=0.0.9",
+    "websockets>=12.0",
 ]
 dev = [
     "ruff>=0.2.0",
