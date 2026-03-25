@@ -1,0 +1,75 @@
+[project]
+name = "agnesagent"
+version = "0.1.0"
+description = "Highly extensible, cross-platform AI agent infrastructure"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "aiohttp>=3.9.0",
+    "numpy>=1.24.0",
+    "sounddevice>=0.4.6",
+    "soundfile>=0.12.1",
+    "pyyaml>=6.0.1",
+    "openai>=1.0.0",
+]
+
+[project.optional-dependencies]
+openvino = [
+    "openvino>=2024.0.0",
+    "transformers>=4.36.0",
+    "torch>=2.1.0",
+]
+whisper = [
+    "whisper>=1.1.10",
+]
+dev = [
+    "ruff>=0.2.0",
+    "pre-commit>=3.0.0",
+    "pytest>=7.4.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[[tool.uv.index]]
+name = "tencent"
+url = "http://mirrors.cloud.tencent.com/pypi/simple"
+default = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["agnes"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP"]
+ignore = []
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.basedpyright]
+typeCheckingMode = "basic"
+pythonPlatform = "All"
+pythonVersion = "3.12"
+reportMissingTypeStubs = false
+reportUnknownMemberType = false
+reportUnknownVariableType = false
+reportUnknownArgumentType = false
+reportUnknownLambdaType = false
+reportMissingImports = false
+reportAttributeAccessIssue = false
+reportUnboundVariable = false
+reportCallIssue = false
+reportArgumentType = false
+reportOptionalMemberAccess = false
+reportOptionalCall = false
+
+[dependency-groups]
+dev = [
+    "basedpyright>=1.38.3",
+]

@@ -1,0 +1,58 @@
+# AgnesAgent 配置文件示例
+# 复制此文件为 config.yaml 并根据需要修改配置
+
+# LLM 配置
+llm:
+  # Provider 选择: ollama, openai, openvino
+  provider: "ollama"
+
+  # Ollama 配置
+  model: "llama2"
+  base_url: "http://localhost:11434"
+
+  # OpenAI 配置 (如使用 openai provider)
+  # api_key: "your-api-key-here"
+  # base_url: "https://api.openai.com/v1"
+  # model: "gpt-3.5-turbo"
+
+  # OpenVINO 配置 (如使用 openvino provider)
+  # model: "your-local-model-path"
+
+  temperature: 0.7
+  max_tokens: 1024
+
+# ASR 配置
+asr:
+  # Provider 选择: local_whisper, openai_whisper
+  provider: "local_whisper"
+
+  # Local Whisper 配置
+  model: "base"  # tiny, base, small, medium, large
+  use_openvino: false
+
+  # OpenAI Whisper 配置 (如使用 openai_whisper provider)
+  # api_key: "your-api-key-here"
+  # base_url: "https://api.openai.com/v1"
+
+# 音频配置
+audio:
+  sample_rate: 16000
+  channels: 1
+  blocksize: 1024
+  # device: 0  # 可选，指定音频设备
+
+# VAD (语音活动检测) 配置
+vad:
+  silence_threshold: 0.01  # 静音阈值
+  speech_threshold: 0.02   # 语音阈值
+  min_speech_frames: 10    # 最小语音帧数
+  min_silence_frames: 30   # 最小静音帧数
+
+# 代理配置
+proxy:
+  # http_proxy: "http://127.0.0.1:8000"
+  # https_proxy: "http://127.0.0.1:8000"
+
+# 日志配置
+log_level: "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+log_file: null     # 如需要日志文件，设置为文件路径，如 "agnes.log"
