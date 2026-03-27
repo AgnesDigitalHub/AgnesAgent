@@ -5,12 +5,44 @@
 ## 功能特性
 
 ### Phase 1：LLM 核心 (已完成)
-- **多模型支持**：OpenAI、Ollama、OpenVINO
+- **多模型支持**：OpenAI、Ollama、OpenVINO、OpenVINO Server
 - **对话历史管理**：支持多轮对话，自动裁剪历史记录
 - **提示词模板**：内置多种角色模板（默认助手、VTuber、编程专家、翻译）
 - **流式输出**：支持实时流式响应
 - **Web UI**：内置 Web 界面，可在浏览器中配置和使用
 - **配置化**：YAML 配置文件，易于扩展
+
+## OpenVINO 使用方式
+
+### 方式一：OpenVINO Server（推荐）⭐
+
+这种方式可以避免频繁加载模型的问题，先启动 OpenVINO 服务，然后通过 API 连接。
+
+```bash
+# 1. 安装 OpenVINO 依赖
+uv sync --extra openvino
+
+# 2. 启动 OpenVINO Server
+python -m tests.ov_server --model ./qwen1.5b-ov --port 11434
+
+# 3. 在另一个终端启动 Agnes Web
+uv run main.py --web
+```
+
+然后在 Web UI 中选择 "OpenVINO Server" Provider，配置：
+- 模型名称：与 Server 端一致（如 qwen1.5b-ov）
+- Base URL：http://localhost:11434
+
+### 方式二：OpenVINO Direct
+
+直接在 AgnesAgent 进程中加载模型，适合快速测试。
+
+```bash
+# 安装 OpenVINO 依赖
+uv sync --extra openvino
+```
+
+在 Web UI 中选择 "OpenVINO Direct" Provider，配置模型路径。
 
 ## 快速开始
 
@@ -29,16 +61,16 @@ uv run main.py --list-templates
 
 ## 使用方式
 
-### 1. Web 模式（推荐）
-
-#### 简单模式 - 仅端口输出
-```bash
-uv run main.py --web --no-select
-```
+### 1. Web 模式（推荐）⭐
 
 #### Web 控制台模式 - 自动打开浏览器
 ```bash
-uv run main.py --web --no-select
+uv run main.py --web
+```
+
+#### 仅端口输出 - 不打开浏览器
+```bash
+uv run main.py --web --no-browser
 ```
 
 启动后，访问 http://127.0.0.1:8000 在浏览器中配置 LLM 并开始使用。
@@ -46,12 +78,16 @@ uv run main.py --web --no-select
 ### 2. 交互式对话模式
 
 ```bash
-# 完整配置模式
+# 智能模式：已配置则直接启动，未配置则显示菜单
 uv run main.py --chat
 
-# 使用默认配置直接启动
+# 强制跳过菜单（使用配置文件）
 uv run main.py --chat --no-select
 ```
+
+**智能判断规则：**
+- 如果配置文件有自定义的 model、api_key 或 base_url → 直接启动
+- 如果是默认配置 → 显示交互式菜单
 
 ## 使用示例
 

@@ -9,7 +9,9 @@ import webbrowser
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
+
+# NiceGUI imports
 from pydantic import BaseModel
 
 from agnes import ChatHistory, get_logger
@@ -45,11 +47,14 @@ class AgnesWebServer:
 
         # 直接读取 HTML 模板
         template_path = os.path.join(os.path.dirname(__file__), "templates", "index.html")
-        with open(template_path, "r", encoding="utf-8") as f:
+        with open(template_path, encoding="utf-8") as f:
             self.index_html = f.read()
 
         self.app = FastAPI(lifespan=self.lifespan)
         self._setup_routes()
+
+        # Initialize NiceGUI
+        self._setup_nicegui()
 
     @asynccontextmanager
     async def lifespan(self, app: FastAPI):
@@ -67,6 +72,13 @@ class AgnesWebServer:
         async def index():
             """主页"""
             return HTMLResponse(content=self.index_html)
+
+        @self.app.get("/favicon.ico")
+        @self.app.get("/icon.ico")
+        async def favicon():
+            """网站图标"""
+            icon_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "icon.ico")
+            return FileResponse(icon_path, media_type="image/png")
 
         @self.app.get("/api/status")
         async def get_status():
@@ -96,23 +108,32 @@ class AgnesWebServer:
             try:
                 from agnes.utils.config_loader import LLMConfig
 
+                # 处理 openvino-server 和 local-api：映射到 openai provider
+                provider = request.provider
+                api_key = request.api_key
+                if provider == "openvino-server" or provider == "local-api":
+                    provider = "openai"
+                    # 本地服务器通常不需要 API key，设置默认值
+                    if not api_key:
+                        api_key = "dummy"
+
                 llm_config = LLMConfig(
-                    provider=request.provider,
+                    provider=provider,
                     model=request.model,
                     base_url=request.base_url,
-                    api_key=request.api_key,
+                    api_key=api_key,
                     temperature=request.temperature,
                     max_tokens=request.max_tokens,
                 )
 
-                await self.agent.setup_llm(llm_config)
-
-                self.logger.info(f"LLM set up: {request.provider} - {request.model}")
+                display_provider = request.provider
+                await self.agent.setup_llm(llm_config, display_provider=display_provider)
+                self.logger.info(f"LLM set up: {display_provider} - {request.model}")
 
                 return {
                     "success": True,
-                    "message": f"LLM configured: {request.provider} - {request.model}",
-                    "provider": request.provider,
+                    "message": f"LLM configured: {display_provider} - {request.model}",
+                    "provider": display_provider,
                     "model": request.model,
                 }
             except Exception as e:
@@ -129,9 +150,7 @@ class AgnesWebServer:
                 if request.system_prompt:
                     self.agent.set_system_prompt(request.system_prompt)
 
-                response: LLMResponse = await self.agent.chat(
-                    request.message, use_history=request.use_history
-                )
+                response: LLMResponse = await self.agent.chat(request.message, use_history=request.use_history)
 
                 return {
                     "success": True,
@@ -171,9 +190,7 @@ class AgnesWebServer:
                     full_response.append(token)
                     await websocket.send_json({"type": "token", "content": token})
 
-                await websocket.send_json(
-                    {"type": "done", "content": "".join(full_response)}
-                )
+                await websocket.send_json({"type": "done", "content": "".join(full_response)})
 
             except WebSocketDisconnect:
                 self.logger.info("WebSocket disconnected")
@@ -200,11 +217,22 @@ class AgnesWebServer:
 
             return {
                 "success": True,
-                "messages": [
-                    {"role": msg.role, "content": msg.content}
-                    for msg in self.agent.chat_history.messages
-                ],
+                "messages": [{"role": msg.role, "content": msg.content} for msg in self.agent.chat_history.messages],
             }
+
+    def _setup_nicegui(self):
+        """Setup NiceGUI integration"""
+        try:
+            # Import web2 app and initialize NiceGUI
+            from nicegui import ui
+
+            # Initialize NiceGUI with FastAPI
+            ui.run_with(self.app, title="Agnes Agent", storage_secret="agnes-secret-key")
+
+            self.logger.info("NiceGUI integrated successfully at /web2")
+        except Exception as e:
+            self.logger.warning(f"NiceGUI integration failed: {e}")
+            self.logger.info("Continuing without NiceGUI (using original web interface)")
 
 
 async def start_web_server(agent, host: str = "127.0.0.1", port: int = 8000, open_browser: bool = True):
@@ -220,8 +248,10 @@ async def start_web_server(agent, host: str = "127.0.0.1", port: int = 8000, ope
     web_server = AgnesWebServer(agent)
 
     if open_browser:
+
         def open_browser_thread():
             import time
+
             time.sleep(1.5)
             webbrowser.open(f"http://{host}:{port}")
 

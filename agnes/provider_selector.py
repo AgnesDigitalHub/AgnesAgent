@@ -2,16 +2,13 @@
 Provider Selector - 交互式选择 LLM 和 ASR provider
 """
 
-import os
-from typing import Any
-
 from agnes.utils.config_loader import ASRConfig, Config, LLMConfig
 
 
 class ProviderSelector:
     """Provider 选择器"""
 
-    LLM_PROVIDERS = ["ollama", "openai", "openvino"]
+    LLM_PROVIDERS = ["ollama", "openai", "openvino-server", "local-api"]
     ASR_PROVIDERS = ["local_whisper", "openai_whisper"]
 
     @classmethod
@@ -65,23 +62,17 @@ class ProviderSelector:
             llm_config.model = input(f"  模型名称 [{default_model}]: ").strip() or default_model
 
             default_base_url = (
-                config.llm.base_url
-                if config and config.llm.provider == "ollama"
-                else "http://localhost:11434"
+                config.llm.base_url if config and config.llm.provider == "ollama" else "http://localhost:11434"
             )
             base_url = input(f"  Base URL [{default_base_url}]: ").strip()
             llm_config.base_url = base_url or default_base_url
 
         elif provider_type == "openai":
-            default_model = (
-                config.llm.model if config and config.llm.provider == "openai" else "gpt-3.5-turbo"
-            )
+            default_model = config.llm.model if config and config.llm.provider == "openai" else "gpt-3.5-turbo"
             llm_config.model = input(f"  模型名称 [{default_model}]: ").strip() or default_model
 
             default_base_url = (
-                config.llm.base_url
-                if config and config.llm.provider == "openai"
-                else "https://api.openai.com/v1"
+                config.llm.base_url if config and config.llm.provider == "openai" else "https://api.openai.com/v1"
             )
             base_url = input(f"  Base URL [{default_base_url}]: ").strip()
             llm_config.base_url = base_url or default_base_url
@@ -94,10 +85,28 @@ class ProviderSelector:
             else:
                 llm_config.api_key = input("  API Key: ").strip()
 
-        elif provider_type == "openvino":
-            default_model = (
-                config.llm.model if config and config.llm.provider == "openvino" else "llama2"
+        elif provider_type == "openvino-server":
+            default_model = config.llm.model if config and config.llm.provider == "openvino-server" else "qwen1.5b-ov"
+            llm_config.model = input(f"  模型名称 [{default_model}]: ").strip() or default_model
+
+            default_base_url = (
+                config.llm.base_url if config and config.llm.provider == "openvino-server" else "http://localhost:11434"
             )
+            base_url = input(f"  Base URL [{default_base_url}]: ").strip()
+            llm_config.base_url = base_url or default_base_url
+
+        elif provider_type == "local-api":
+            default_model = config.llm.model if config and config.llm.provider == "local-api" else "local-model"
+            llm_config.model = input(f"  模型名称 [{default_model}]: ").strip() or default_model
+
+            default_base_url = (
+                config.llm.base_url if config and config.llm.provider == "local-api" else "http://localhost:11434/v1"
+            )
+            base_url = input(f"  Base URL [{default_base_url}]: ").strip()
+            llm_config.base_url = base_url or default_base_url
+
+        elif provider_type == "openvino":
+            default_model = config.llm.model if config and config.llm.provider == "openvino" else "llama2"
             llm_config.model = input(f"  模型名称/路径 [{default_model}]: ").strip() or default_model
 
         return llm_config
@@ -145,15 +154,15 @@ class ProviderSelector:
         print(f"\n配置 {provider_type} provider:")
 
         if provider_type == "local_whisper":
-            default_model = (
-                config.asr.model if config and config.asr.provider == "local_whisper" else "base"
-            )
+            default_model = config.asr.model if config and config.asr.provider == "local_whisper" else "base"
             asr_config.model = input(f"  模型大小 [{default_model}]: ").strip() or default_model
 
             default_use_openvino = (
                 config.asr.use_openvino if config and config.asr.provider == "local_whisper" else False
             )
-            use_openvino = input(f"  使用 OpenVINO 加速 (y/n) [{'y' if default_use_openvino else 'n'}]: ").strip().lower()
+            use_openvino = (
+                input(f"  使用 OpenVINO 加速 (y/n) [{'y' if default_use_openvino else 'n'}]: ").strip().lower()
+            )
             asr_config.use_openvino = (use_openvino == "y") if use_openvino else default_use_openvino
 
         elif provider_type == "openai_whisper":
@@ -165,9 +174,7 @@ class ProviderSelector:
             base_url = input(f"  Base URL [{default_base_url}]: ").strip()
             asr_config.base_url = base_url or default_base_url
 
-            current_api_key = (
-                config.asr.api_key if config and config.asr.provider == "openai_whisper" else ""
-            )
+            current_api_key = config.asr.api_key if config and config.asr.provider == "openai_whisper" else ""
             if current_api_key:
                 mask = "*" * min(len(current_api_key), 8)
                 api_key = input(f"  API Key [{mask}]: ").strip()

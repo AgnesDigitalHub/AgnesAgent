@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AgnesAgent - AI 助手</title>
+    <link rel="icon" type="image/png" href="/icon.png">
+    <link rel="shortcut icon" type="image/png" href="/icon.png">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; }
@@ -26,6 +28,8 @@
         .status-label { font-size: 13px; color: #666; }
         .status-value { font-size: 13px; font-weight: 600; color: #667eea; }
         .status-value.inactive { color: #999; }
+        .info-box { background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 12px; margin-bottom: 16px; font-size: 13px; color: #0369a1; line-height: 1.5; }
+        .info-box code { background: #e0f2fe; padding: 2px 6px; border-radius: 4px; font-family: monospace; }
         .chat-panel { flex: 1; background: white; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); display: flex; flex-direction: column; overflow: hidden; }
         .chat-header { padding: 20px 24px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; }
         .chat-header h1 { font-size: 22px; color: #333; }
@@ -79,11 +83,27 @@
                     <select id="llm-provider">
                         <option value="ollama">Ollama</option>
                         <option value="openai">OpenAI / 兼容</option>
-                        <option value="openvino">OpenVINO</option>
+                        <option value="openvino-server">OpenVINO Server</option>
+                        <option value="openvino">OpenVINO Direct</option>
                     </select>
                 </div>
+                
+                <!-- OpenVINO Server 信息提示 -->
+                <div class="info-box" id="ov-server-info" style="display: none;">
+                    <strong>💡 OpenVINO Server 使用提示：</strong><br>
+                    1. 先启动 OpenVINO Server: <code>python -m tests.ov_server --model ./qwen1.5b-ov</code><br>
+                    2. 然后在此配置连接
+                </div>
+                
+                <!-- OpenVINO Direct 信息提示 -->
+                <div class="info-box" id="ov-direct-info" style="display: none;">
+                    <strong>💡 OpenVINO Direct 使用提示：</strong><br>
+                    1. 请先安装依赖：<code>uv sync --extra openvino</code><br>
+                    2. 模型路径可以是本地路径或 Hugging Face 模型 ID
+                </div>
+                
                 <div class="form-group">
-                    <label>模型名称</label>
+                    <label id="model-label">模型名称</label>
                     <input type="text" id="llm-model" placeholder="例如: llama2, gpt-3.5-turbo">
                 </div>
                 <div class="form-group" id="base-url-group">
@@ -158,15 +178,40 @@
             const provider = e.target.value;
             const baseUrlGroup = document.getElementById('base-url-group');
             const apiKeyGroup = document.getElementById('api-key-group');
+            const modelLabel = document.getElementById('model-label');
+            const modelInput = document.getElementById('llm-model');
+            const ovServerInfo = document.getElementById('ov-server-info');
+            const ovDirectInfo = document.getElementById('ov-direct-info');
+            
+            // 隐藏所有提示
+            ovServerInfo.style.display = 'none';
+            ovDirectInfo.style.display = 'none';
+            
             if (provider === 'ollama') {
                 baseUrlGroup.style.display = 'block';
                 apiKeyGroup.style.display = 'none';
+                modelLabel.textContent = '模型名称';
+                modelInput.placeholder = '例如: llama2, qwen2';
+                document.getElementById('llm-base-url').value = 'http://localhost:11434';
             } else if (provider === 'openai') {
                 baseUrlGroup.style.display = 'block';
                 apiKeyGroup.style.display = 'block';
-            } else {
+                modelLabel.textContent = '模型名称';
+                modelInput.placeholder = '例如: gpt-3.5-turbo';
+                document.getElementById('llm-base-url').value = 'https://api.openai.com/v1';
+            } else if (provider === 'openvino-server') {
+                baseUrlGroup.style.display = 'block';
+                apiKeyGroup.style.display = 'none';
+                ovServerInfo.style.display = 'block';
+                modelLabel.textContent = '模型名称';
+                modelInput.placeholder = '例如: qwen1.5b-ov';
+                document.getElementById('llm-base-url').value = 'http://localhost:11434';
+            } else if (provider === 'openvino') {
                 baseUrlGroup.style.display = 'none';
                 apiKeyGroup.style.display = 'none';
+                ovDirectInfo.style.display = 'block';
+                modelLabel.textContent = '模型路径';
+                modelInput.placeholder = '例如: ./qwen1.5b-ov 或 Qwen/Qwen2-0.5B-Instruct';
             }
         });
 

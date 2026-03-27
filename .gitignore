@@ -35,14 +35,17 @@ env/
 
 # Config (contains secrets)
 config.yaml
+config/config.yaml
+config/config.yaml.local
+config/llm_profiles/*
+!config/llm_profiles/.gitkeep
+config/settings/*
+!config/settings/.gitkeep
 
 # Testing
 .pytest_cache/
 .coverage
 htmlcov/
-
-# Pre-commit
-.pre-commit-config.yaml
 
 # Logs
 *.log
@@ -53,6 +56,6 @@ logs/
 Thumbs.db
 
 # Deployment
-config.yaml
 uv.lock
 .ruff_cache/
+tests/

@@ -53,20 +53,25 @@ class AgnesAgent:
         self.audio_recorder = None
         self.vad = None
         self.chat_history = None
+        self._llm_provider_display_name = None  # 用于显示的 provider 名称
 
         # 向后兼容：如果设置了 auto_initialize，则自动初始化
         if auto_initialize:
             self.logger.info("auto_initialize=True，将在 __aenter__ 中自动初始化所有组件")
 
-    async def _init_llm_provider(self, llm_config=None):
+    async def _init_llm_provider(self, llm_config=None, display_provider=None):
         """
         初始化 LLM Provider
 
         Args:
             llm_config: 可选的 LLM 配置，如果为 None 则使用配置文件中的设置
+            display_provider: 可选的用于显示的 provider 名称
         """
         config = llm_config or self.config.llm
         provider_type = config.provider
+
+        # 保存显示用的 provider 名称
+        self._llm_provider_display_name = display_provider or provider_type
 
         if provider_type == "ollama":
             self.llm_provider = OllamaProvider(
@@ -74,11 +79,11 @@ class AgnesAgent:
                 model=config.model,
                 proxy=self.config.proxy.http_proxy,
             )
-        elif provider_type == "openai":
-            if not config.api_key:
+        elif provider_type in ["openai", "openvino-server", "local-api"]:
+            if provider_type == "openai" and not config.api_key:
                 raise ValueError("OpenAI API key is required")
             self.llm_provider = OpenAIProvider(
-                api_key=config.api_key,
+                api_key=config.api_key or "dummy-key",
                 base_url=config.base_url or "https://api.openai.com/v1",
                 model=config.model,
                 proxy=self.config.proxy.http_proxy,
@@ -103,9 +108,7 @@ class AgnesAgent:
         provider_type = config.provider
 
         if provider_type == "local_whisper":
-            self.asr_provider = LocalWhisperProvider(
-                model_size=config.model, use_openvino=config.use_openvino
-            )
+            self.asr_provider = LocalWhisperProvider(model_size=config.model, use_openvino=config.use_openvino)
         elif provider_type == "openai_whisper":
             if not config.api_key:
                 raise ValueError("OpenAI API key is required for ASR")
@@ -167,18 +170,19 @@ class AgnesAgent:
 
         self.logger.info("AgnesAgent components initialized")
 
-    async def setup_llm(self, llm_config=None):
+    async def setup_llm(self, llm_config=None, display_provider=None):
         """
         设置/切换 LLM Provider
 
         Args:
             llm_config: LLM 配置，如果为 None 则使用配置文件中的设置
+            display_provider: 可选的用于显示的 provider 名称
         """
         # 关闭现有的 LLM provider
         if self.llm_provider and hasattr(self.llm_provider, "close"):
             await self.llm_provider.close()
 
-        await self._init_llm_provider(llm_config)
+        await self._init_llm_provider(llm_config, display_provider=display_provider)
 
     async def setup_asr(self, asr_config=None):
         """
@@ -200,7 +204,7 @@ class AgnesAgent:
     def get_current_llm_provider_name(self) -> str | None:
         """获取当前 LLM provider 名称"""
         if self.llm_provider:
-            return self.config.llm.provider
+            return self._llm_provider_display_name or self.config.llm.provider
         return None
 
     def get_current_asr_provider_name(self) -> str | None:
@@ -350,9 +354,7 @@ class AgnesAgent:
                     audio_data = np.concatenate(audio_buffer)
 
         self.logger.info("Transcribing...")
-        result = await self.asr_provider.transcribe(
-            audio_data, sample_rate=self.config.audio.sample_rate
-        )
+        result = await self.asr_provider.transcribe(audio_data, sample_rate=self.config.audio.sample_rate)
 
         self.logger.info(f"Transcribed: {result.text}")
         return result
@@ -377,6 +379,33 @@ class AgnesAgent:
         await self.close()
 
 
+async def start_agnes_server(agent, host: str = "127.0.0.1", port: int = 8000, open_browser: bool = True):
+    """启动新的 Agnes Server"""
+    import threading
+    import webbrowser
+
+    from agnes.server import create_app
+
+    app = create_app(agent)
+
+    if open_browser:
+
+        def open_browser_thread():
+            import time
+
+            time.sleep(1.5)
+            webbrowser.open(f"http://{host}:{port}")
+
+        threading.Thread(target=open_browser_thread, daemon=True).start()
+
+    import uvicorn
+
+    config = uvicorn.Config(app, host=host, port=port, log_level="info")
+    server = uvicorn.Server(config)
+
+    await server.serve()
+
+
 async def interactive_chat(agent: AgnesAgent):
     """交互式对话模式 - 支持启动菜单和运行时切换"""
     print("\n" + "=" * 60)
@@ -397,8 +426,7 @@ async def interactive_chat(agent: AgnesAgent):
         try:
             # 显示当前状态
             ProviderSelector.print_current_providers(
-                agent.get_current_llm_provider_name(),
-                agent.get_current_asr_provider_name()
+                agent.get_current_llm_provider_name(), agent.get_current_asr_provider_name()
             )
 
             user_input = input("\n你: ").strip()
@@ -461,7 +489,6 @@ async def interactive_chat(agent: AgnesAgent):
             print(f"\n错误: {e}\n")
 
 
-
 async def main():
     """主函数 - 演示用法"""
     import argparse
@@ -469,15 +496,17 @@ async def main():
     parser = argparse.ArgumentParser(description="AgnesAgent - AI Agent Infrastructure")
     parser.add_argument("--config", default="config/config.yaml", help="Path to config file")
     parser.add_argument("--chat", action="store_true", help="Interactive chat mode")
+    parser.add_argument("--list-templates", action="store_true", help="List available prompt templates")
     parser.add_argument(
-        "--list-templates", action="store_true", help="List available prompt templates"
+        "--no-select",
+        action="store_true",
+        help="Skip provider selection menu (use config directly)",
     )
-    parser.add_argument(
-        "--no-select", action="store_true", help="Skip provider selection menu (use config directly)"
-    )
-    parser.add_argument("--web", action="store_true", help="Start web server")
-    parser.add_argument("--host", default="127.0.0.1", help="Web server host")
-    parser.add_argument("--port", type=int, default=8000, help="Web server port")
+    parser.add_argument("--web", action="store_true", help="Start old web server (deprecated)")
+    parser.add_argument("--server", action="store_true", help="Start new Agnes Server")
+    parser.add_argument("--no-browser", action="store_true", help="Don't open browser automatically")
+    parser.add_argument("--host", default="127.0.0.1", help="Server host")
+    parser.add_argument("--port", type=int, default=8000, help="Server port")
     args = parser.parse_args()
 
     if args.list_templates:
@@ -514,17 +543,26 @@ async def main():
         elif args.web:
             try:
                 from agnes.web_server import start_web_server
+
                 await start_web_server(agent, args.host, args.port)
             except ImportError:
                 print("Web dependencies not installed!")
                 print("Please install with: pip install -e .[web]")
+                return
+        elif args.server:
+            try:
+                await start_agnes_server(agent, args.host, args.port, not args.no_browser)
+            except ImportError:
+                print("Server dependencies not installed!")
+                print("Please install with: pip install -e .[server]")
                 return
         else:
             print("AgnesAgent - 高度可扩展、跨平台的 AI Agent 基础架构")
             print()
             print("使用方式:")
             print("  --chat           交互式对话模式")
-            print("  --web            启动 Web 服务器")
+            print("  --server         启动 Agnes Server (推荐)")
+            print("  --web            启动旧版 Web 服务器 (已弃用)")
             print("  --list-templates 列出可用的提示词模板")
             print("  --config FILE    指定配置文件")
             print("  --no-select      跳过 provider 选择菜单")
