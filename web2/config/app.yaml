@@ -1,0 +1,128 @@
+# Agnes Web2 - Amis SPA 应用配置
+# 异步按需加载版本：
+# 1. 顶层 App 只返回路由信息和 schemaApi
+# 2. 用户点击页面时，前端请求 /api/pages/{page_name} 获取 schema
+# 3. 后端每次请求用 Pydantic 重新构建 schema 返回
+
+app:
+  title: "Agnes Agent 控制台"
+  description: "基于 FastAPI + python-amis 的管理控制台"
+
+# 应用基础配置
+config:
+  theme: "cxd"
+  locale: "zh-CN"
+  api_prefix: "/api"
+
+# 左侧导航菜单配置
+menus:
+  - name: "dashboard"
+    label: "概览"
+    icon: "home"
+    url: "/dashboard"
+
+  - name: "models"
+    label: "模型管理"
+    icon: "smart_toy"
+    url: "/models"
+
+  - name: "chat"
+    label: "对话"
+    icon: "chat"
+    url: "/chat"
+
+  - name: "agents"
+    label: "Agent 管理"
+    icon: "psychology"
+    url: "/agents"
+
+  - name: "prompts"
+    label: "Prompt IDE"
+    icon: "edit_note"
+    url: "/prompts"
+
+  - name: "tools"
+    label: "工具/插件"
+    icon: "build"
+    url: "/tools"
+
+  - name: "knowledge"
+    label: "知识库/RAG"
+    icon: "menu_book"
+    url: "/knowledge"
+
+  - name: "workflows"
+    label: "Workflow 编排"
+    icon: "account_tree"
+    url: "/workflows"
+
+  - name: "logs"
+    label: "运行日志"
+    icon: "article"
+    url: "/logs"
+
+  - name: "publish"
+    label: "API/集成发布"
+    icon: "publish"
+    url: "/publish"
+
+  - name: "users"
+    label: "用户权限"
+    icon: "group"
+    url: "/users"
+
+  - name: "settings"
+    label: "系统设置"
+    icon: "settings"
+    url: "/settings"
+
+# 页面定义
+# schema 字段将在应用启动时由 Pydantic 动态构建并嵌入
+pages:
+  dashboard:
+    title: "概览"
+    schema: null
+
+  models:
+    title: "模型管理"
+    schema: null
+
+  chat:
+    title: "对话"
+    schema: null
+
+  agents:
+    label: "Agent 管理"
+    schema: null
+
+  prompts:
+    title: "Prompt IDE"
+    schema: null
+
+  knowledge:
+    title: "知识库/RAG"
+    schema: null
+
+  tools:
+    title: "工具/插件"
+    schema: null
+
+  workflows:
+    title: "Workflow 编排"
+    schema: null
+
+  logs:
+    title: "运行日志"
+    schema: null
+
+  publish:
+    title: "API/集成发布"
+    schema: null
+
+  users:
+    title: "用户权限"
+    schema: null
+
+  settings:
+    title: "系统设置"
+    schema: null

@@ -9,13 +9,132 @@ import webbrowser
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 
-# NiceGUI imports
+# pydantic imports
 from pydantic import BaseModel
 
 from agnes import ChatHistory, get_logger
 from agnes.core.llm_provider import LLMResponse
+
+# Import python-amis schemas
+from web2.schemas import (
+    get_dashboard_schema,
+    get_models_schema,
+    get_chat_schema,
+    get_agents_schema,
+    get_prompts_schema,
+    get_knowledge_schema,
+    get_tools_schema,
+    get_workflows_schema,
+    get_logs_schema,
+    get_publish_schema,
+    get_users_schema,
+    get_settings_schema,
+)
+
+# Build complete amis app configuration with all schemas embedded
+from amis.components import App
+
+def build_amis_app():
+    """Build complete amis app configuration with all schemas embedded"""
+    
+    pages = [
+        {
+            "path": "/",
+            "label": "概览",
+            "icon": "fa fa-tachometer",
+            "redirect": "/dashboard"
+        },
+        {
+            "path": "/dashboard",
+            "label": "Dashboard",
+            "icon": "fa fa-tachometer",
+            "schema": get_dashboard_schema()
+        },
+        {
+            "path": "/models",
+            "label": "模型管理",
+            "icon": "fa fa-brain",
+            "schema": get_models_schema()
+        },
+        {
+            "path": "/chat",
+            "label": "聊天",
+            "icon": "fa fa-comments",
+            "schema": get_chat_schema()
+        },
+        {
+            "path": "/agents",
+            "label": "Agent 管理",
+            "icon": "fa fa-robot",
+            "schema": get_agents_schema()
+        },
+        {
+            "path": "/prompts",
+            "label": "Prompt IDE",
+            "icon": "fa fa-comment",
+            "schema": get_prompts_schema()
+        },
+        {
+            "path": "/tools",
+            "label": "工具/插件",
+            "icon": "fa fa-wrench",
+            "schema": get_tools_schema()
+        },
+        {
+            "path": "/knowledge",
+            "label": "知识库/RAG",
+            "icon": "fa fa-book",
+            "schema": get_knowledge_schema()
+        },
+        {
+            "path": "/workflows",
+            "label": "Workflow 编排",
+            "icon": "fa fa-link",
+            "schema": get_workflows_schema()
+        },
+        {
+            "path": "/logs",
+            "label": "运行日志",
+            "icon": "fa fa-history",
+            "schema": get_logs_schema()
+        },
+        {
+            "path": "/publish",
+            "label": "API/集成",
+            "icon": "fa fa-plug",
+            "schema": get_publish_schema()
+        },
+        {
+            "path": "/users",
+            "label": "用户权限",
+            "icon": "fa fa-users",
+            "schema": get_users_schema()
+        },
+        {
+            "path": "/settings",
+            "label": "系统设置",
+            "icon": "fa fa-cog",
+            "schema": get_settings_schema()
+        }
+    ]
+    
+    app = App(
+        brandName="Agnes Agent",
+        logo="/favicon.ico",
+        header={
+            "type": "tpl",
+            "tpl": '<span class="text-white">Web 控制台</span>',
+            "inline": False
+        },
+        footer="",
+        asideBefore="",
+        asideAfter="",
+        pages=pages
+    )
+    
+    return app.render()
 
 
 class LLMSetupRequest(BaseModel):
@@ -52,9 +171,6 @@ class AgnesWebServer:
 
         self.app = FastAPI(lifespan=self.lifespan)
         self._setup_routes()
-
-        # Initialize NiceGUI
-        self._setup_nicegui()
 
     @asynccontextmanager
     async def lifespan(self, app: FastAPI):
@@ -220,19 +336,19 @@ class AgnesWebServer:
                 "messages": [{"role": msg.role, "content": msg.content} for msg in self.agent.chat_history.messages],
             }
 
-    def _setup_nicegui(self):
-        """Setup NiceGUI integration"""
-        try:
-            # Import web2 app and initialize NiceGUI
-            from nicegui import ui
-
-            # Initialize NiceGUI with FastAPI
-            ui.run_with(self.app, title="Agnes Agent", storage_secret="agnes-secret-key")
-
-            self.logger.info("NiceGUI integrated successfully at /web2")
-        except Exception as e:
-            self.logger.warning(f"NiceGUI integration failed: {e}")
-            self.logger.info("Continuing without NiceGUI (using original web interface)")
+        # Get complete amis app config with all schemas embedded
+        @self.app.get("/web2/app.json")
+        async def get_amis_app():
+            """Get complete amis app configuration with all schemas embedded"""
+            try:
+                app_config = build_amis_app()
+                return JSONResponse(content=app_config)
+            except Exception as e:
+                self.logger.error(f"Failed to build amis app config: {e}")
+                return JSONResponse(
+                    content={"error": f"Failed to build amis app config: {str(e)}"},
+                    status_code=500
+                )
 
 
 async def start_web_server(agent, host: str = "127.0.0.1", port: int = 8000, open_browser: bool = True):

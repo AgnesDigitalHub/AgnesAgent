@@ -503,10 +503,12 @@ async def main():
         help="Skip provider selection menu (use config directly)",
     )
     parser.add_argument("--web", action="store_true", help="Start old web server (deprecated)")
-    parser.add_argument("--server", action="store_true", help="Start new Agnes Server")
+    parser.add_argument("--no-server", action="store_true", help="Do not start Agnes Server (default is to start server)")
     parser.add_argument("--no-browser", action="store_true", help="Don't open browser automatically")
     parser.add_argument("--host", default="127.0.0.1", help="Server host")
     parser.add_argument("--port", type=int, default=8000, help="Server port")
+    parser.add_argument("--web2", action="store_true", help="Start Web2 Amis SPA console")
+    parser.add_argument("--reload", action="store_true", help="Auto reload schema on each request (dev mode)")
     args = parser.parse_args()
 
     if args.list_templates:
@@ -543,29 +545,117 @@ async def main():
         elif args.web:
             try:
                 from agnes.web_server import start_web_server
-
                 await start_web_server(agent, args.host, args.port)
             except ImportError:
                 print("Web dependencies not installed!")
                 print("Please install with: pip install -e .[web]")
                 return
-        elif args.server:
+        elif args.web2:
+            # 启动 Web2 Amis SPA 控制台
+            try:
+                from web2.main import create_app
+                import uvicorn
+                import threading
+                import webbrowser
+                from fastapi import FastAPI, HTTPException
+                from fastapi.middleware.cors import CORSMiddleware
+                from fastapi.responses import StreamingResponse
+
+                # 创建 web2 应用
+                web2_app = create_app(reload=args.reload)
+
+                # 创建干净的主应用，不使用 agnes.server.create_app 避免冲突路由
+                main_app = FastAPI(title="AgnesAgent Web2", version="2.0.0")
+                
+                # CORS 配置
+                main_app.add_middleware(
+                    CORSMiddleware,
+                    allow_origins=["*"],
+                    allow_credentials=True,
+                    allow_methods=["*"],
+                    allow_headers=["*"],
+                )
+                
+                # 添加favicon路由
+                from fastapi.responses import FileResponse
+                
+                @main_app.get("/favicon.ico")
+                @main_app.get("/icon.png")
+                async def favicon():
+                    """网站图标"""
+                    # 先尝试 favicon.ico
+                    icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icon.png")
+                    if os.path.exists(icon_path):
+                        return FileResponse(icon_path, media_type="image/x-icon")
+                    # 再尝试 icon.png
+                    icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "favicon.ico")
+                    if os.path.exists(icon_path):
+                        return FileResponse(icon_path, media_type="image/png")
+                    raise HTTPException(status_code=404, detail="Icon not found")
+                
+                # 只保留必要的 OpenAI 兼容 API（从 agnes.server 复制过来核心功能）
+                from agnes.server.models import (
+                    ChatCompletionRequest,
+                )
+                from agnes.server.api import stream_openai_response, create_openai_response
+                
+                # 添加 OpenAI 兼容 API
+                @main_app.post("/v1/chat/completions")
+                async def chat_completions(request: ChatCompletionRequest):
+                    """OpenAI 兼容的聊天补全 API"""
+                    if not agent.llm_provider:
+                        raise HTTPException(status_code=500, detail="LLM provider not initialized")
+
+                    if request.stream:
+                        return StreamingResponse(
+                            stream_openai_response(agent, request),
+                            media_type="text/event-stream",
+                        )
+                    else:
+                        return create_openai_response(agent, request)
+                
+                # 直接把 web2_app 的路由挂载到根
+                # 用户要求全部改成根路径，不要 /web2 前缀
+                from fastapi import APIRouter
+                for route in web2_app.routes:
+                    main_app.routes.append(route)
+
+                if not args.no_browser:
+                    def open_browser_thread():
+                        import time
+                        time.sleep(1.5)
+                        webbrowser.open(f"http://{args.host}:{args.port}/")
+
+                    threading.Thread(target=open_browser_thread, daemon=True).start()
+
+                config = uvicorn.Config(main_app, host=args.host, port=args.port, log_level="info")
+                server = uvicorn.Server(config)
+                await server.serve()
+            except ImportError as e:
+                print(f"Web2 dependencies not installed: {e}")
+                print("Please install with: uv sync")
+                return
+        elif not args.no_server:
+            # 默认启动 Agnes Server
             try:
                 await start_agnes_server(agent, args.host, args.port, not args.no_browser)
             except ImportError:
                 print("Server dependencies not installed!")
-                print("Please install with: pip install -e .[server]")
+                print("Please install with: uv sync")
                 return
         else:
             print("AgnesAgent - 高度可扩展、跨平台的 AI Agent 基础架构")
             print()
             print("使用方式:")
+            print("  (默认)          启动 Agnes Server")
+            print("  --web2           启动 Web2 Amis SPA 控制台")
             print("  --chat           交互式对话模式")
-            print("  --server         启动 Agnes Server (推荐)")
+            print("  --no-server      不启动 Agnes Server")
             print("  --web            启动旧版 Web 服务器 (已弃用)")
             print("  --list-templates 列出可用的提示词模板")
             print("  --config FILE    指定配置文件")
             print("  --no-select      跳过 provider 选择菜单")
+            print("  --reload         开发模式：每次请求重新加载 schema")
 
 
 if __name__ == "__main__":

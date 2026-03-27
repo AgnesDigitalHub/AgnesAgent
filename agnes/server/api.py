@@ -1,5 +1,5 @@
 """
-Agnes Server - amis Web 控制台 + NiceGUI Web2 + OpenAI 兼容 API
+Agnes Server - amis Web 控制台 + OpenAI 兼容 API
 """
 
 import json
@@ -10,19 +10,11 @@ from typing import Any
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
 
 from agnes import ChatHistory, get_logger
 from agnes.config import SETTINGS_SECTIONS, ConfigManager, LLMProfile, SettingsStorage
 from agnes.core.llm_provider import LLMResponse
-
-# NiceGUI imports
-try:
-    from nicegui import ui
-
-    NUI_AVAILABLE = True
-except ImportError:
-    NUI_AVAILABLE = False
 
 from .models import (
     ChatCompletionChoice,
@@ -41,6 +33,19 @@ from .models import (
     SuccessResponse,
     UpdateProfileRequest,
 )
+
+from .schemas.dashboard import get_dashboard_schema
+from .schemas.chat import get_chat_schema
+from .schemas.agents import get_agents_schema
+from .schemas.models import get_models_schema
+from .schemas.workflows import get_workflows_schema
+from .schemas.tools import get_tools_schema
+from .schemas.knowledge import get_knowledge_schema
+from .schemas.logs import get_logs_schema
+from .schemas.prompts import get_prompts_schema
+from .schemas.publish import get_publish_schema
+from .schemas.users import get_users_schema
+from .schemas.settings import get_settings_schema
 
 logger = get_logger("agnes.server.api")
 
@@ -66,9 +71,6 @@ class AgnesServer:
 
         self.app = FastAPI(lifespan=self.lifespan)
         self._setup_routes()
-
-        # Initialize NiceGUI if available
-        self._setup_nicegui()
 
     @asynccontextmanager
     async def lifespan(self, app: FastAPI):
@@ -202,91 +204,184 @@ class AgnesServer:
             raise HTTPException(status_code=404, detail="Icon not found")
 
         # ============================================
-        # amis 控制台（已禁用，保留代码以便恢复）
+        # amis App JSON - 完整内嵌所有页面 schema，必须在 /web2/{path:path} 之前注册
         # ============================================
-        # @self.app.get("/amis", response_class=HTMLResponse)
-        # async def index():
-        #     """主页 - amis 控制台"""
-        #     template_path = os.path.join(os.path.dirname(__file__), "../web/templates/index.html")
-        #     template_path = os.path.abspath(template_path)
-        #     logger.info(f"Loading amis console from: {template_path}")
-        #     if os.path.exists(template_path):
-        #         with open(template_path, "r", encoding="utf-8") as f:
-        #             return HTMLResponse(content=f.read())
-        #     return HTMLResponse(
-        #         content="""
-        #         <html>
-        #             <head><title>Agnes Server</title></head>
-        #             <body>
-        #                 <h1>Agnes Server</h1>
-        #                 <p>Template not found</p>
-        #             </body>
-        #         </html>
-        #         """
-        #     )
+        @self.app.get("/web2/app.json")
+        async def get_amis_app_json():
+            """返回完整的 amis app 配置（所有页面 schema 内嵌，无 schemaApi 异步���求）"""
+            app_config = {
+                "type": "app",
+                "brandName": "Agnes Agent",
+                "logo": "/favicon.ico",
+                "footer": "",
+                "pages": [
+                    {
+                        "path": "/",
+                        "redirect": "/dashboard"
+                    },
+                    {
+                        "path": "/dashboard",
+                        "label": "Dashboard",
+                        "icon": "fa fa-tachometer",
+                        "schema": get_dashboard_schema()
+                    },
+                    {
+                        "path": "/models",
+                        "label": "模型管理",
+                        "icon": "fa fa-brain",
+                        "schema": get_models_schema()
+                    },
+                    {
+                        "path": "/chat",
+                        "label": "聊天",
+                        "icon": "fa fa-comments",
+                        "schema": get_chat_schema()
+                    },
+                    {
+                        "path": "/agents",
+                        "label": "Agent 管理",
+                        "icon": "fa fa-robot",
+                        "schema": get_agents_schema()
+                    },
+                    {
+                        "path": "/prompts",
+                        "label": "Prompt IDE",
+                        "icon": "fa fa-comment",
+                        "schema": get_prompts_schema()
+                    },
+                    {
+                        "path": "/tools",
+                        "label": "工具/插件",
+                        "icon": "fa fa-wrench",
+                        "schema": get_tools_schema()
+                    },
+                    {
+                        "path": "/knowledge",
+                        "label": "知识库/RAG",
+                        "icon": "fa fa-book",
+                        "schema": get_knowledge_schema()
+                    },
+                    {
+                        "path": "/workflows",
+                        "label": "Workflow 编排",
+                        "icon": "fa fa-link",
+                        "schema": get_workflows_schema()
+                    },
+                    {
+                        "path": "/logs",
+                        "label": "运行日志",
+                        "icon": "fa fa-history",
+                        "schema": get_logs_schema()
+                    },
+                    {
+                        "path": "/publish",
+                        "label": "API/集成",
+                        "icon": "fa fa-plug",
+                        "schema": get_publish_schema()
+                    },
+                    {
+                        "path": "/users",
+                        "label": "用户权限",
+                        "icon": "fa fa-users",
+                        "schema": get_users_schema()
+                    },
+                    {
+                        "path": "/settings",
+                        "label": "系统设置",
+                        "icon": "fa fa-cog",
+                        "schema": get_settings_schema()
+                    }
+                ]
+            }
+            return JSONResponse(content=app_config)
 
         # ============================================
-        # amis Schema API（已禁用，保留代码以便恢复）
+        # amis Web2 控制台
         # ============================================
-        # @self.app.get("/api/schema/dashboard")
-        # async def schema_dashboard():
-        #     """Dashboard 页面 Schema"""
-        #     return get_dashboard_schema()
+        @self.app.get("/web2", response_class=HTMLResponse)
+        @self.app.get("/web2/{path:path}")
+        async def index():
+            """主页 - amis Web2 控制台"""
+            template_path = os.path.join(os.path.dirname(__file__), "../../agnes/web/templates/index.html")
+            template_path = os.path.abspath(template_path)
+            logger.info(f"Loading amis Web2 console from: {template_path}")
+            if os.path.exists(template_path):
+                with open(template_path, "r", encoding="utf-8") as f:
+                    return HTMLResponse(content=f.read())
+            return HTMLResponse(
+                content="""
+                <html>
+                    <head><title>Agnes Agent</title></head>
+                    <body>
+                        <h1>Agnes Agent</h1>
+                        <p>Template not found</p>
+                    </body>
+                </html>
+                """
+            )
 
-        # @self.app.get("/api/schema/chat")
-        # async def schema_chat():
-        #     """聊天页面 Schema"""
-        #     return get_chat_schema()
+        # ============================================
+        # amis Schema API
+        # ============================================
+        @self.app.get("/web2/api/schema/dashboard")
+        async def schema_dashboard():
+            """Dashboard 页面 Schema"""
+            return get_dashboard_schema()
 
-        # @self.app.get("/api/schema/agents")
-        # async def schema_agents():
-        #     """Agent 管理页面 Schema"""
-        #     return get_agents_schema()
+        @self.app.get("/web2/api/schema/chat")
+        async def schema_chat():
+            """聊天页面 Schema"""
+            return get_chat_schema()
 
-        # @self.app.get("/api/schema/models")
-        # async def schema_models():
-        #     """模型管理页面 Schema"""
-        #     return get_models_schema()
+        @self.app.get("/web2/api/schema/agents")
+        async def schema_agents():
+            """Agent 管理页面 Schema"""
+            return get_agents_schema()
 
-        # @self.app.get("/api/schema/workflows")
-        # async def schema_workflows():
-        #     """Workflow 编排页面 Schema"""
-        #     return get_workflows_schema()
+        @self.app.get("/web2/api/schema/models")
+        async def schema_models():
+            """模型管理页面 Schema"""
+            return get_models_schema()
 
-        # @self.app.get("/api/schema/tools")
-        # async def schema_tools():
-        #     """工具管理页面 Schema"""
-        #     return get_tools_schema()
+        @self.app.get("/web2/api/schema/workflows")
+        async def schema_workflows():
+            """Workflow 编排页面 Schema"""
+            return get_workflows_schema()
 
-        # @self.app.get("/api/schema/knowledge")
-        # async def schema_knowledge():
-        #     """知识库页面 Schema"""
-        #     return get_knowledge_schema()
+        @self.app.get("/web2/api/schema/tools")
+        async def schema_tools():
+            """工具管理页面 Schema"""
+            return get_tools_schema()
 
-        # @self.app.get("/api/schema/logs")
-        # async def schema_logs():
-        #     """运行日志页面 Schema"""
-        #     return get_logs_schema()
+        @self.app.get("/web2/api/schema/knowledge")
+        async def schema_knowledge():
+            """知识库页面 Schema"""
+            return get_knowledge_schema()
 
-        # @self.app.get("/api/schema/prompts")
-        # async def schema_prompts():
-        #     """Prompt IDE 页面 Schema"""
-        #     return get_prompts_schema()
+        @self.app.get("/web2/api/schema/logs")
+        async def schema_logs():
+            """运行日志页面 Schema"""
+            return get_logs_schema()
 
-        # @self.app.get("/api/schema/publish")
-        # async def schema_publish():
-        #     """API 发布页面 Schema"""
-        #     return get_publish_schema()
+        @self.app.get("/web2/api/schema/prompts")
+        async def schema_prompts():
+            """Prompt IDE 页面 Schema"""
+            return get_prompts_schema()
 
-        # @self.app.get("/api/schema/users")
-        # async def schema_users():
-        #     """用户权限页面 Schema"""
-        #     return get_users_schema()
+        @self.app.get("/web2/api/schema/publish")
+        async def schema_publish():
+            """API 发布页面 Schema"""
+            return get_publish_schema()
 
-        # @self.app.get("/api/schema/settings")
-        # async def schema_settings():
-        #     """系统设置页面 Schema"""
-        #     return get_settings_schema()
+        @self.app.get("/web2/api/schema/users")
+        async def schema_users():
+            """用户权限页面 Schema"""
+            return get_users_schema()
+
+        @self.app.get("/web2/api/schema/settings")
+        async def schema_settings():
+            """系统设置页面 Schema"""
+            return get_settings_schema()
 
         # ============================================
         # 业务 API
@@ -447,4 +542,112 @@ class AgnesServer:
             return {"success": False, "message": "config.yaml not found or sync failed"}
 
         # ============================================
-        #
+        # OpenAI 兼容 API - /v1/chat/completions
+        # ============================================
+
+        @self.app.post("/v1/chat/completions")
+        async def chat_completions(request: ChatCompletionRequest):
+            """OpenAI 兼容的聊天补全 API"""
+            if not self.agent.llm_provider:
+                raise HTTPException(status_code=500, detail="LLM provider not initialized")
+
+            if request.stream:
+                return StreamingResponse(
+                    stream_openai_response(self.agent, request),
+                    media_type="text/event-stream",
+                )
+            else:
+                return create_openai_response(self.agent, request)
+
+
+def create_app(agent):
+    """创建 FastAPI 应用"""
+    server = AgnesServer(agent)
+    return server.app
+
+
+async def stream_openai_response(agent, request: ChatCompletionRequest):
+    """流式生成 OpenAI 兼容的响应"""
+    import json
+
+    created = int(time.time())
+    msg_id = f"chatcmpl-{uuid4()}"
+
+    messages = request.messages
+    if agent.chat_history:
+        agent.chat_history.clear()
+        for msg in messages:
+            if msg.role == "system":
+                agent.chat_history.add_system_message(msg.content)
+            elif msg.role == "user":
+                agent.chat_history.add_user_message(msg.content)
+            elif msg.role == "assistant":
+                agent.chat_history.add_assistant_message(msg.content)
+
+    full_content = []
+    async for token in agent.chat_stream(
+        messages[-1].content,
+        use_history=len(messages) > 1,
+    ):
+        full_content.append(token)
+        chunk = ChatCompletionChunk(
+            id=msg_id,
+            object="chat.completion.chunk",
+            created=created,
+            model=request.model or agent.config.llm.model,
+            choices=[
+                ChatCompletionChunkChoice(
+                    delta=ChatMessage(role="assistant", content=token),
+                    index=0,
+                )
+            ],
+        )
+        yield f"data: {json.dumps(chunk.model_dump())}\n\n"
+
+    yield "data: [DONE]\n\n"
+
+
+def create_openai_response(agent, request: ChatCompletionRequest):
+    """生成非流式 OpenAI 兼容的响应"""
+    import json
+
+    created = int(time.time())
+    msg_id = f"chatcmpl-{uuid4()}"
+
+    messages = request.messages
+    if agent.chat_history:
+        agent.chat_history.clear()
+        for msg in messages:
+            if msg.role == "system":
+                agent.chat_history.add_system_message(msg.content)
+            elif msg.role == "user":
+                agent.chat_history.add_user_message(msg.content)
+            elif msg.role == "assistant":
+                agent.chat_history.add_assistant_message(msg.content)
+
+    response = agent.chat(
+        messages[-1].content,
+        use_history=len(messages) > 1,
+    )
+    result = response.content
+
+    return ChatCompletionResponse(
+        id=msg_id,
+        object="chat.completion",
+        created=created,
+        model=request.model or agent.config.llm.model,
+        choices=[
+            ChatCompletionChoice(
+                message=ChatMessage(role="assistant", content=result),
+                index=0,
+                finish_reason="stop",
+            )
+        ],
+        usage=ChatCompletionUsage(
+            prompt_tokens=0,
+            completion_tokens=0,
+            total_tokens=0,
+        ),
+    )
+
+

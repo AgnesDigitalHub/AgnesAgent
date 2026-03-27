@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>Agnes Agent 控制台</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- 最终决战：全力度强力CSS补丁，强制把侧边栏"抠"出来 -->
+    <style>
+        /* 1. 强力布局补丁：确保容器不坍塌 */
+        html, body, #root, .amis-Layout {
+            height: 100vh !important;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        /* 2. 强力显色：强制侧边栏文字、图标为白色 */
+        .amis-Layout-aside, 
+        .amis-AsideNav, 
+        .amis-AsideNav-item, 
+        .amis-AsideNav-item a, 
+        .amis-AsideNav-item-label {
+            color: rgba(255, 255, 255, 0.9) !important; /* 强制白字 */
+            visibility: visible !important;
+            opacity: 1 !important;
+            display: block !important;
+        }
+
+        /* 3. 强制背景：防止和背景混在一起 */
+        .amis-Layout-aside {
+            background-color: #1a212d !important; /* 深蓝色背景 */
+            min-width: 220px !important;
+        }
+
+        /* 4. 强制图标库加载失败时的占位 */
+        .amis-AsideNav-item i:before {
+            content: "•" !important; /* 如果图标加载不出来，显示一个小圆点 */
+            color: #00bcd4;
+            margin-right: 8px;
+        }
+
+        /* 5. 确保链接有高度，能点动 */
+        .amis-AsideNav-item a {
+            padding: 10px 15px !important;
+            text-decoration: none !important;
+        }
+        
+        /* 6. 高亮当前选中的菜单 */
+        .amis-AsideNav-item.is-active {
+            background: #242e3e !important;
+            border-left: 3px solid #00bcd4 !important;
+        }
+    </style>
+
+    <!-- 2. 引用标准 SDK (使用稳定版本 6.10.0) -->
+    <link rel="stylesheet" href="https://unpkg.com/amis@6.10.0/sdk/cxd.css" />
+    <link rel="stylesheet" href="https://unpkg.com/amis@6.10.0/sdk/helper.css" />
+    <link rel="stylesheet" href="https://unpkg.com/amis@6.10.0/sdk/iconfont.css" />
+    <script src="https://unpkg.com/amis@6.10.0/sdk/sdk.js"></script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script>
+        (async function() {
+            try {
+                const response = await fetch('/app.json');
+                const rawData = await response.json();
+                
+                // 【核心修正】强制确保数据结构正确
+                const finalAppConfig = {
+                    type: "app", // 强制指定类型
+                    brandName: rawData.brandName || "Agnes Agent",
+                    pages: rawData.pages || [] // 强制确保 pages 存在
+                };
+
+                // 保留原始配置中的其他字段，包括 layout 等关键布局设置
+                Object.keys(rawData).forEach(key => {
+                    if (!['type', 'brandName', 'pages'].includes(key)) {
+                        finalAppConfig[key] = rawData[key];
+                    }
+                });
+
+                console.log("🛠️ 手动构造的配置:", finalAppConfig);
+                console.log("📋 pages 数组长度:", finalAppConfig.pages.length);
+                console.log("📋 pages 内容:", finalAppConfig.pages);
+
+                // 检查 pages 是否真的有数据
+                if (finalAppConfig.pages.length === 0) {
+                    alert("错误：pages 数组是空的！后端配置可能有问题。");
+                    return;
+                }
+
+                // 打印每个 page 的 label
+                finalAppConfig.pages.forEach((p, i) => {
+                    console.log(`  page[${i}]: label="${p.label}", url="${p.url}", icon="${p.icon}"`);
+                });
+
+                // 调试：输出整个配置结构方便排查
+                console.log("🚀 最终配置:", JSON.stringify(finalAppConfig, null, 2));
+
+                const amis = amisRequire('amis/embed');
+                console.log("📦 AMIS SDK 加载成功");
+                console.log("🏗️ 使用原生HTML创建侧边栏，确保100%生成");
+
+                // AMIS 自动生成失败，改用原生HTML直接创建侧边栏
+                // 保证100%能生成DOM节点
+                const root = document.getElementById('root');
+                
+                // 创建原生侧边栏 HTML
+                let navHtml = `
+                    <div style="display: flex; height: 100vh; margin: 0; padding: 0;">
+                        <!-- 原生侧边栏 -->
+                        <div class="amis-Layout-aside" style="
+                            background-color: #1a212d;
+                            width: 220px;
+                            min-width: 220px;
+                            height: 100%;
+                            overflow-y: auto;
+                            flex-shrink: 0;
+                        ">
+                            <div style="
+                                padding: 20px 15px;
+                                border-bottom: 1px solid #2c3e50;
+                                color: white;
+                                font-size: 18px;
+                                font-weight: bold;
+                            ">${finalAppConfig.brandName}</div>
+                            <nav style="padding: 10px 0;">
+                `;
+                
+                // 添加每个菜单项
+                finalAppConfig.pages.forEach((p, i) => {
+                    const icon = p.icon || '';
+                    navHtml += `
+                        <div class="amis-AsideNav-item" style="margin: 2px 0;">
+                            <a href="${p.url}" style="
+                                display: block;
+                                padding: 12px 20px;
+                                color: rgba(255,255,255,0.85);
+                                text-decoration: none;
+                                transition: background-color 0.2s;
+                            " onmouseover="this.style.backgroundColor='#242e3e'" 
+                              onmouseout="this.style.backgroundColor='transparent'">
+                                ${icon ? `<i class="${icon}" style="margin-right: 8px;"></i>` : ''}
+                                <span>${p.label}</span>
+                            </a>
+                        </div>
+                    `;
+                });
+                
+                navHtml += `
+                            </nav>
+                        </div>
+                        <!-- 主内容区域，让 AMIS 在这里渲染 -->
+                        <div id="amis-main-content" style="
+                            flex: 1;
+                            height: 100%;
+                            overflow-y: auto;
+                            background-color: #f5f5f5;
+                            padding: 20px;
+                        ">
+                        </div>
+                    </div>
+                `;
+                
+                // 直接写入原生 HTML
+                root.innerHTML = navHtml;
+                console.log("✅ 原生侧边栏已直接创建到DOM");
+                
+                // 在主内容区域使用 AMIS 渲染首页
+                const homePage = finalAppConfig.pages.find(p => p.url === '/');
+                const contentTarget = document.getElementById('amis-main-content');
+                
+                if (homePage && homePage.schema) {
+                    amis.embed('#amis-main-content', homePage.schema, {}, {
+                        theme: 'cxd',
+                        locale: 'zh-CN'
+                    });
+                } else {
+                    contentTarget.innerHTML = `<h1>欢迎使用 ${finalAppConfig.brandName}</h1><p>请点击左侧导航选择功能</p>`;
+                }
+
+                // 检查节点（原生HTML创建一定会成功）
+                setTimeout(() => {
+                    const aside = document.querySelector('.amis-Layout-aside');
+                    if (!aside) {
+                        console.error("❌ 严重错误：侧边栏节点依然未生成！原生HTML创建失败。");
+                    } else {
+                        console.log("✅ 侧边栏节点已生成！（原生HTML方式）");
+                        console.log("   侧边栏宽度:", aside.offsetWidth);
+                        console.log("   侧边栏高度:", aside.offsetHeight);
+                    }
+                }, 100);
+
+            } catch (e) {
+                console.error("初始化崩溃:", e);
+                const root = document.getElementById('root');
+                if (root) {
+                    root.innerHTML = `<div style="color:red; padding: 20px;">初始化崩溃: ${e.message}</div>`;
+                }
+            }
+        })();
+    </script>
+</body>
+</html>

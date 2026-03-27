@@ -8,11 +8,11 @@
     <meta name="renderer" content="webkit">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     
-    <!-- 使用 amis 2.x 稳定版本 -->
-    <link rel="stylesheet" title="default" href="https://unpkg.com/amis@2.9.0/sdk/sdk.css">
-    <link rel="stylesheet" href="https://unpkg.com/amis@2.9.0/sdk/helper.css">
-    <link rel="stylesheet" href="https://unpkg.com/amis@2.9.0/sdk/iconfont.css">
-    <script src="https://unpkg.com/amis@2.9.0/sdk/sdk.js"></script>
+    <!-- 使用 amis 6.x 正确的 SDK 包 -->
+    <link rel="stylesheet" title="default" href="https://unpkg.com/amis@6.3.0/sdk/sdk.css">
+    <link rel="stylesheet" href="https://unpkg.com/amis@6.3.0/sdk/helper.css">
+    <link rel="stylesheet" href="https://unpkg.com/amis@6.3.0/sdk/iconfont.css">
+    <script src="https://unpkg.com/amis@6.3.0/sdk/sdk.js"></script>
     
     <style>
         html, body, .app-wrapper {
@@ -70,182 +70,14 @@
             };
         }
 
-        // 动态加载 Schema
-        async function loadSchemas() {
-            const schemas = {};
-            const schemaList = [
-                'dashboard',
-                'models',
-                'chat',
-                'agents',
-                'prompts',
-                'tools',
-                'knowledge',
-                'workflows',
-                'logs',
-                'publish',
-                'users',
-                'settings'
-            ];
-            
-            for (const name of schemaList) {
-                try {
-                    const response = await fetch(`/api/schema/${name}`);
-                    if (response.ok) {
-                        schemas[name] = await response.json();
-                    }
-                } catch (e) {
-                    console.warn(`Failed to load schema ${name}:`, e);
-                }
-            }
-            return schemas;
-        }
-
         async function initAmis() {
             try {
-                const schemas = await loadSchemas();
-                
-                const amisApp = {
-                    type: 'app',
-                    brandName: 'Agnes Agent',
-                    logo: '/favicon.ico',
-                    header: {
-                        type: 'tpl',
-                        tpl: '<span class="text-white">Web 控制台</span>',
-                        inline: false
-                    },
-                    footer: '',
-                    asideBefore: '',
-                    asideAfter: '',
-                    routes: [
-                        {
-                            path: '/',
-                            label: '概览',
-                            icon: 'fa fa-tachometer',
-                            redirect: '/dashboard'
-                        },
-                        {
-                            path: '/dashboard',
-                            label: 'Dashboard',
-                            icon: 'fa fa-tachometer',
-                            schema: schemas.dashboard || {
-                                type: 'page',
-                                title: 'Dashboard',
-                                body: { type: 'alert', level: 'info', body: '加载中...' }
-                            }
-                        },
-                        {
-                            path: '/models',
-                            label: '模型管理',
-                            icon: 'fa fa-brain',
-                            schema: schemas.models || {
-                                type: 'page',
-                                title: '模型管理',
-                                body: { type: 'alert', level: 'info', body: '加载中...' }
-                            }
-                        },
-                        {
-                            path: '/chat',
-                            label: '聊天',
-                            icon: 'fa fa-comments',
-                            schema: schemas.chat || {
-                                type: 'page',
-                                title: '聊天',
-                                body: { type: 'alert', level: 'info', body: '聊天功能开发中...' }
-                            }
-                        },
-                        {
-                            path: '/agents',
-                            label: 'Agent 管理',
-                            icon: 'fa fa-robot',
-                            schema: schemas.agents || {
-                                type: 'page',
-                                title: 'Agent 管理',
-                                body: { type: 'alert', level: 'warning', body: '🚧 此功能正在开发中，敬请期待...' }
-                            }
-                        },
-                        {
-                            path: '/prompts',
-                            label: 'Prompt IDE',
-                            icon: 'fa fa-comment',
-                            schema: schemas.prompts || {
-                                type: 'page',
-                                title: 'Prompt IDE',
-                                body: { type: 'alert', level: 'warning', body: '🚧 此功能正在开发中，敬请期待...' }
-                            }
-                        },
-                        {
-                            path: '/tools',
-                            label: '工具/插件',
-                            icon: 'fa fa-wrench',
-                            schema: schemas.tools || {
-                                type: 'page',
-                                title: '工具/插件管理',
-                                body: { type: 'alert', level: 'warning', body: '🚧 此功能正在开发中，敬请期待...' }
-                            }
-                        },
-                        {
-                            path: '/knowledge',
-                            label: '知识库/RAG',
-                            icon: 'fa fa-book',
-                            schema: schemas.knowledge || {
-                                type: 'page',
-                                title: '知识库/RAG',
-                                body: { type: 'alert', level: 'warning', body: '🚧 此功能正在开发中，敬请期待...' }
-                            }
-                        },
-                        {
-                            path: '/workflows',
-                            label: 'Workflow 编排',
-                            icon: 'fa fa-link',
-                            schema: schemas.workflows || {
-                                type: 'page',
-                                title: 'Workflow 编排',
-                                body: { type: 'alert', level: 'warning', body: '🚧 此功能正在开发中，敬请期待...' }
-                            }
-                        },
-                        {
-                            path: '/logs',
-                            label: '运行日志',
-                            icon: 'fa fa-history',
-                            schema: schemas.logs || {
-                                type: 'page',
-                                title: '运行日志',
-                                body: { type: 'alert', level: 'warning', body: '🚧 此功能正在开发中，敬请期待...' }
-                            }
-                        },
-                        {
-                            path: '/publish',
-                            label: 'API/集成',
-                            icon: 'fa fa-plug',
-                            schema: schemas.publish || {
-                                type: 'page',
-                                title: 'API/集成发布',
-                                body: { type: 'alert', level: 'warning', body: '🚧 此功能正在开发中，敬请期待...' }
-                            }
-                        },
-                        {
-                            path: '/users',
-                            label: '用户权限',
-                            icon: 'fa fa-users',
-                            schema: schemas.users || {
-                                type: 'page',
-                                title: '用户权限',
-                                body: { type: 'alert', level: 'warning', body: '🚧 此功能正在开发中，敬请期待...' }
-                            }
-                        },
-                        {
-                            path: '/settings',
-                            label: '系统设置',
-                            icon: 'fa fa-cog',
-                            schema: schemas.settings || {
-                                type: 'page',
-                                title: '系统设置',
-                                body: { type: 'alert', level: 'warning', body: '🚧 此功能正在开发中，敬请期待...' }
-                            }
-                        }
-                    ]
-                };
+                // Fetch complete app configuration from backend (all schemas embedded)
+                const response = await fetch('/web2/app.json');
+                if (!response.ok) {
+                    throw new Error(`Failed to load app config: ${response.status} ${response.statusText}`);
+                }
+                const amisApp = await response.json();
 
                 let amisEnv = {
                     theme: 'cxd',
@@ -271,33 +103,58 @@
                     }
                 };
 
-                // 使用 window.amis.require 加载 amis 模块
-                // 替换 window.amis.require 这一段
-                const amis = window.amis;
-                const amisRequire = window.amisRequire || (window.amis && window.amis.require);
-
-                if (!amisRequire) {
-                    showError("SDK 加载异常：找不到 amisRequire。请检查网络或 CDN 链接。");
-                    return;
+                // 兼容不同版本的 Amis SDK 导出
+                let amisModule = window.amis;
+                console.log('Initial window.amis:', window.amis);
+                console.log('window.amisRequire:', window.amisRequire);
+                
+                // Amis 6.x SDK 将导出放在 window.amis.default
+                if (window.amis && window.amis.default && !window.amis.embed) {
+                    amisModule = window.amis.default;
                 }
-
-                amisRequire(['amis'], function(amisLib) {
-                    // 兼容不同版本的导出格式
-                    const realAmis = amisLib.default || amisLib;
-                    
-                    if (realAmis && realAmis.embed) {
-                        try {
-                            realAmis.embed('#root', amisApp, {
-                                // 这里可以传初始数据
-                            }, amisEnv);
-                            console.log('渲染成功');
-                        } catch (err) {
-                            showError("渲染逻辑崩溃: " + err.message);
-                        }
-                    } else {
-                        showError("SDK 格式错误：找不到 embed 方法");
+                // 如果通过 require 导出
+                else if (window.amisRequire) {
+                    try {
+                        amisModule = window.amisRequire('amis');
+                    } catch (e) {
+                        console.warn('Failed to get amis via require:', e);
                     }
-                });
+                }
+                // 如果 window.amis 本身就是个工厂函数
+                else if (typeof window.amis === 'function' && (!amisModule || !amisModule.embed)) {
+                    try {
+                        amisModule = window.amis();
+                    } catch (e) {
+                        console.warn('Failed to call amis factory:', e);
+                    }
+                }
+                
+                // 从 window.amis.embed 开始找，然后是 default.embed
+                let embedFn = null;
+                if (window.amis && window.amis.embed) {
+                    embedFn = window.amis.embed;
+                } else if (amisModule && amisModule.embed) {
+                    embedFn = amisModule.embed;
+                } else if (amisModule && amisModule.default && amisModule.default.embed) {
+                    embedFn = amisModule.default.embed;
+                }
+                
+                if (embedFn) {
+                    try {
+                        embedFn('#root', amisApp, {
+                            // 这里可以传初始数据
+                        }, amisEnv);
+                        console.log('渲染成功');
+                    } catch (err) {
+                        showError("渲染逻辑崩溃: " + err.message);
+                    }
+                } else if (amisModule) {
+                    const keys = Object.keys(amisModule);
+                    console.error('Available exports:', keys);
+                    showError(`SDK 格式错误：找不到 embed 方法。找到：${keys.join(',')}`);
+                } else {
+                    showError("SDK 格式错误：window.amis 不存在");
+                }
             } catch (e) {
                 console.error('Failed to load amis app:', e);
                 showError(e.message);
