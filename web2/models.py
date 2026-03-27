@@ -1,0 +1,206 @@
+"""
+数据模型定义 - 模型配置
+"""
+
+from dataclasses import dataclass, asdict
+from typing import Optional
+from datetime import datetime
+import uuid
+import json
+from pathlib import Path
+from typing import List, Dict, Optional
+
+from agnes.utils.config_loader import LLMConfig
+
+
+@dataclass
+class LLMProfile:
+    """LLM 配置档案"""
+    id: str
+    name: str
+    description: str
+    provider: str
+    model: str
+    base_url: Optional[str] = None
+    api_key: Optional[str] = None
+    temperature: float = 0.7
+    max_tokens: Optional[int] = None
+    is_active: bool = False
+    created_at: str = ""
+    updated_at: str = ""
+    
+    def to_dict(self) -> dict:
+        """转换为字典"""
+        return asdict(self)
+    
+    @classmethod
+    def from_dict(cls, data: dict) -> "LLMProfile":
+        """从字典创建"""
+        return cls(**data)
+    
+    def to_llm_config(self) -> LLMConfig:
+        """转换为 Agnes LLMConfig"""
+        return LLMConfig(
+            provider=self.provider,
+            model=self.model,
+            base_url=self.base_url,
+            api_key=self.api_key,
+            temperature=self.temperature,
+            max_tokens=self.max_tokens,
+        )
+
+
+class ProfileStore:
+    """LLM 配置档案存储"""
+    
+    def __init__(self, storage_path: Path):
+        self.storage_path = storage_path
+        self.storage_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    def _read_file(self) -> dict:
+        """读取存储文件"""
+        if not self.storage_path.exists():
+            return {"profiles": [], "active_id": None}
+        
+        with open(self.storage_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    
+    def _write_file(self, data: dict) -> None:
+        """写入存储文件"""
+        with open(self.storage_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    
+    def list_profiles(self) -> List[LLMProfile]:
+        """列出所有配置"""
+        data = self._read_file()
+        profiles = []
+        for p_data in data.get("profiles", []):
+            profiles.append(LLMProfile.from_dict(p_data))
+        return profiles
+    
+    def get_profile(self, profile_id: str) -> Optional[LLMProfile]:
+        """获取单个配置"""
+        profiles = self.list_profiles()
+        for p in profiles:
+            if p.id == profile_id:
+                return p
+        return None
+    
+    def create_profile(
+        self,
+        name: str,
+        description: str,
+        provider: str,
+        model: str,
+        base_url: Optional[str] = None,
+        api_key: Optional[str] = None,
+        temperature: float = 0.7,
+        max_tokens: Optional[int] = None,
+    ) -> LLMProfile:
+        """创建新配置"""
+        now = datetime.now().isoformat()
+        profile = LLMProfile(
+            id=str(uuid.uuid4()),
+            name=name,
+            description=description,
+            provider=provider,
+            model=model,
+            base_url=base_url,
+            api_key=api_key,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            is_active=False,
+            created_at=now,
+            updated_at=now,
+        )
+        
+        data = self._read_file()
+        profiles = data.get("profiles", [])
+        profiles.append(profile.to_dict())
+        data["profiles"] = profiles
+        self._write_file(data)
+        
+        return profile
+    
+    def update_profile(
+        self,
+        profile_id: str,
+        **kwargs,
+    ) -> Optional[LLMProfile]:
+        """更新配置"""
+        data = self._read_file()
+        profiles = data.get("profiles", [])
+        
+        for i, p_data in enumerate(profiles):
+            if p_data["id"] == profile_id:
+                # 更新字段
+                for key, value in kwargs.items():
+                    if value is not None:
+                        p_data[key] = value
+                p_data["updated_at"] = datetime.now().isoformat()
+                
+                profiles[i] = p_data
+                data["profiles"] = profiles
+                self._write_file(data)
+                
+                return LLMProfile.from_dict(p_data)
+        
+        return None
+    
+    def delete_profile(self, profile_id: str) -> bool:
+        """删除配置"""
+        data = self._read_file()
+        profiles = data.get("profiles", [])
+        
+        original_len = len(profiles)
+        profiles = [p for p in profiles if p["id"] != profile_id]
+        
+        if len(profiles) == original_len:
+            return False
+        
+        # 如果删除的是激活的，清除激活状态
+        if data.get("active_id") == profile_id:
+            data["active_id"] = None
+        
+        data["profiles"] = profiles
+        self._write_file(data)
+        
+        return True
+    
+    def activate_profile(self, profile_id: str) -> bool:
+        """激活配置"""
+        data = self._read_file()
+        profiles = data.get("profiles", [])
+        
+        # 先取消所有激活
+        found = False
+        for p_data in profiles:
+            if p_data["id"] == profile_id:
+                p_data["is_active"] = True
+                found = True
+            else:
+                p_data["is_active"] = False
+        
+        if not found:
+            return False
+        
+        data["active_id"] = profile_id
+        data["profiles"] = profiles
+        self._write_file(data)
+        
+        return True
+    
+    def get_active_profile(self) -> Optional[LLMProfile]:
+        """获取当前激活的配置"""
+        data = self._read_file()
+        active_id = data.get("active_id")
+        
+        if not active_id:
+            return None
+        
+        return self.get_profile(active_id)
+    
+    def get_active_id(self) -> Optional[str]:
+        """获取当前激活的 ID"""
+        data = self._read_file()
+        return data.get("active_id")
