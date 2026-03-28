@@ -2,10 +2,12 @@
 mouse_action - 鼠标输入控制
 支持移动、点击、滚轮、拖拽
 """
-import time
+
 import asyncio
-from typing import Any, Dict, List, Optional, Tuple
-from agnes.skills.base import BaseSkill, SkillSchema, SkillResult, SkillMetadata
+import time
+from typing import Any
+
+from agnes.skills.base import BaseSkill, SkillMetadata, SkillResult, SkillSchema
 
 
 class MouseActionSkill(BaseSkill):
@@ -19,7 +21,7 @@ class MouseActionSkill(BaseSkill):
         category="action",
         permission_level="restricted",
         cost=0.0,
-        tags=["mouse", "input", "control", "click", "move"]
+        tags=["mouse", "input", "control", "click", "move"],
     )
 
     def __init__(self):
@@ -31,6 +33,7 @@ class MouseActionSkill(BaseSkill):
         if self._initialized:
             return
         from pynput import mouse
+
         self._controller = mouse.Controller()
         self._mouse = mouse
         self._initialized = True
@@ -51,62 +54,35 @@ class MouseActionSkill(BaseSkill):
                         "- release: 松开按键\n"
                         "- scroll: 滚动滚轮\n"
                         "- drag: 从起点拖拽到终点"
-                    )
+                    ),
                 },
-                "x": {
-                    "type": "integer",
-                    "description": "目标 X 坐标（屏幕绝对坐标），适用于 move/click/drag"
-                },
-                "y": {
-                    "type": "integer",
-                    "description": "目标 Y 坐标（屏幕绝对坐标），适用于 move/click/drag"
-                },
-                "from_x": {
-                    "type": "integer",
-                    "description": "拖拽起点 X，适用于 drag"
-                },
-                "from_y": {
-                    "type": "integer",
-                    "description": "拖拽起点 Y，适用于 drag"
-                },
+                "x": {"type": "integer", "description": "目标 X 坐标（屏幕绝对坐标），适用于 move/click/drag"},
+                "y": {"type": "integer", "description": "目标 Y 坐标（屏幕绝对坐标），适用于 move/click/drag"},
+                "from_x": {"type": "integer", "description": "拖拽起点 X，适用于 drag"},
+                "from_y": {"type": "integer", "description": "拖拽起点 Y，适用于 drag"},
                 "button": {
                     "type": "string",
                     "enum": ["left", "right", "middle"],
                     "description": "鼠标按键，默认 left",
-                    "default": "left"
+                    "default": "left",
                 },
-                "clicks": {
-                    "type": "integer",
-                    "description": "点击次数，默认 1，2=双击",
-                    "default": 1
-                },
-                "delta_y": {
-                    "type": "integer",
-                    "description": "滚轮滚动量，正数向上，负数向下，适用于 scroll"
-                },
-                "delta_x": {
-                    "type": "integer",
-                    "description": "水平滚轮滚动量，默认 0",
-                    "default": 0
-                },
+                "clicks": {"type": "integer", "description": "点击次数，默认 1，2=双击", "default": 1},
+                "delta_y": {"type": "integer", "description": "滚轮滚动量，正数向上，负数向下，适用于 scroll"},
+                "delta_x": {"type": "integer", "description": "水平滚轮滚动量，默认 0", "default": 0},
                 "duration_ms": {
                     "type": "integer",
                     "description": "移动持续时间毫秒（平滑移动），默认 0 瞬间移动",
-                    "default": 0
+                    "default": 0,
                 },
-                "post_delay_ms": {
-                    "type": "integer",
-                    "description": "动作完成后额外延迟毫秒，默认 0",
-                    "default": 0
-                }
+                "post_delay_ms": {"type": "integer", "description": "动作完成后额外延迟毫秒，默认 0", "default": 0},
             },
             required=["action"],
             returns={
                 "success": "boolean - 是否成功",
                 "action": "string - 执行的动作",
                 "current_x": "integer - 当前 X 坐标",
-                "current_y": "integer - 当前 Y 坐标"
-            }
+                "current_y": "integer - 当前 Y 坐标",
+            },
         )
 
     def _parse_button(self, button_name: str):
@@ -140,7 +116,7 @@ class MouseActionSkill(BaseSkill):
         # 确保最终位置准确
         self._controller.position = (to_x, to_y)
 
-    async def execute(self, parameters: Dict[str, Any]) -> SkillResult:
+    async def execute(self, parameters: dict[str, Any]) -> SkillResult:
         start_time = time.time()
 
         try:
@@ -227,17 +203,17 @@ class MouseActionSkill(BaseSkill):
             current_pos = self._controller.position
 
             execution_time = (time.time() - start_time) * 1000
-            return SkillResult.ok({
-                "action": action,
-                "current_x": current_pos[0],
-                "current_y": current_pos[1],
-            }, execution_time_ms=execution_time)
+            return SkillResult.ok(
+                {
+                    "action": action,
+                    "current_x": current_pos[0],
+                    "current_y": current_pos[1],
+                },
+                execution_time_ms=execution_time,
+            )
 
         except ImportError:
-            return SkillResult.error(
-                "dependency_missing",
-                "pynput 库未安装，请安装: pip install pynput"
-            )
+            return SkillResult.error("dependency_missing", "pynput 库未安装，请安装: pip install pynput")
         except ValueError as e:
             execution_time = (time.time() - start_time) * 1000
             return SkillResult.error("invalid_parameter", str(e), execution_time)
@@ -248,4 +224,5 @@ class MouseActionSkill(BaseSkill):
 
 # 注册到全局注册表
 from agnes.skills.registry import registry
+
 registry.register(MouseActionSkill())

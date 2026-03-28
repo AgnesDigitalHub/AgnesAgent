@@ -72,7 +72,7 @@ class ConfigManager:
 
     def __init__(self, storage_dir: str = "config/llm_profiles"):
         """
-        ���始化配置管理器
+        初始化配置管理器
 
         Args:
             storage_dir: 配置存储目录
@@ -94,7 +94,7 @@ class ConfigManager:
         return None
 
     def _save_active_id(self, profile_id: str | None) -> None:
-        """将激活的 Profile ID 持���化到磁盘"""
+        """将激活的 Profile ID 持久化到磁盘"""
         try:
             if profile_id:
                 self._active_file.write_text(profile_id, encoding="utf-8")

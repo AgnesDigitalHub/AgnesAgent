@@ -21,9 +21,7 @@ except ImportError:
 class LocalWhisperProvider(ASRProvider):
     """本地 Whisper ASR Provider，支持 OpenVINO 加速"""
 
-    def __init__(
-        self, model_size: str = "base", device: str = "cpu", use_openvino: bool = False, **kwargs
-    ):
+    def __init__(self, model_size: str = "base", device: str = "cpu", use_openvino: bool = False, **kwargs):
         if not HAS_WHISPER:
             raise ImportError("Whisper not installed. Please install with: pip install whisper")
 
@@ -73,9 +71,7 @@ class LocalWhisperProvider(ASRProvider):
             segments=result.get("segments", []),
         )
 
-    async def transcribe_file(
-        self, audio_path: str, language: str | None = None, **kwargs
-    ) -> ASRResponse:
+    async def transcribe_file(self, audio_path: str, language: str | None = None, **kwargs) -> ASRResponse:
         await self._load_model()
 
         def _transcribe():

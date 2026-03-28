@@ -124,9 +124,7 @@ class ConfigLoader:
                 silence_threshold=vad_data.get("silence_threshold", config.vad.silence_threshold),
                 speech_threshold=vad_data.get("speech_threshold", config.vad.speech_threshold),
                 min_speech_frames=vad_data.get("min_speech_frames", config.vad.min_speech_frames),
-                min_silence_frames=vad_data.get(
-                    "min_silence_frames", config.vad.min_silence_frames
-                ),
+                min_silence_frames=vad_data.get("min_silence_frames", config.vad.min_silence_frames),
             )
 
         if "proxy" in data and data["proxy"] is not None:

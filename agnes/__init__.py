@@ -57,3 +57,47 @@ try:
     __all__.extend(["ConfigManager", "LLMProfile", "create_app"])
 except ImportError:
     pass
+
+# 导入技能系统和遥测
+try:
+    from .skills import (
+        BaseSkill,
+        SkillCallEngine,
+        SkillRegistry,
+        SkillResult,
+        SkillSchema,
+        YAMLLoadResult,
+        YAMLSkillDefinition,
+        YAMLSkillLoader,
+        get_yaml_loader,
+        load_and_register_all,
+        registry,
+    )
+    from .telemetry import (
+        get_tracer,
+        init_tracer,
+        instrument_llm_call,
+        instrument_skill_call,
+    )
+
+    __all__.extend(
+        [
+            "BaseSkill",
+            "SkillResult",
+            "SkillSchema",
+            "SkillRegistry",
+            "SkillCallEngine",
+            "YAMLSkillLoader",
+            "YAMLSkillDefinition",
+            "YAMLLoadResult",
+            "registry",
+            "get_yaml_loader",
+            "load_and_register_all",
+            "get_tracer",
+            "init_tracer",
+            "instrument_llm_call",
+            "instrument_skill_call",
+        ]
+    )
+except ImportError:
+    pass

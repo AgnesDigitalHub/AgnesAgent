@@ -2,16 +2,16 @@
 MCP 服务端
 将本地 Skills 暴露为 MCP 工具，供其他 MCP 客户端调用
 """
-import logging
+
 import json
-from typing import Any, Dict, List, Optional
-from pydantic import BaseModel
+import logging
+from typing import Any
+
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
-from mcp.types import Tool, PromptMessage, GetPromptResult
+from mcp.types import GetPromptResult, Tool
 
 from agnes.skills.registry import registry as skill_registry
-from agnes.skills.base import BaseSkill, SkillSchema
 
 logger = logging.getLogger(__name__)
 
@@ -43,15 +43,16 @@ class AgnesMCPServer:
                         "type": "object",
                         "properties": schema.parameters,
                         "required": schema.required,
-                    }
+                    },
                 )
                 tools.append(mcp_tool)
             return tools
 
         @self._server.call_tool()
-        async def handle_call_tool(name: str, arguments: Dict[str, Any]):
+        async def handle_call_tool(name: str, arguments: dict[str, Any]):
             """调用工具"""
             from mcp.types import TextContent
+
             skill = skill_registry.get(name)
             if not skill:
                 raise ValueError(f"Tool '{name}' not found")
@@ -70,11 +71,11 @@ class AgnesMCPServer:
 
         # 暂时不需要 prompts 功能
         @self._server.list_prompts()
-        async def handle_list_prompts() -> List:
+        async def handle_list_prompts() -> list:
             return []
 
         @self._server.get_prompt()
-        async def handle_get_prompt(name: str, arguments: Optional[Dict[str, str]]) -> GetPromptResult:
+        async def handle_get_prompt(name: str, arguments: dict[str, str] | None) -> GetPromptResult:
             raise ValueError(f"Prompt '{name}' not found")
 
     async def run_stdio(self):
@@ -96,5 +97,6 @@ def create_default_server() -> AgnesMCPServer:
 if __name__ == "__main__":
     # 可以直接运行作为独立服务
     import asyncio
+
     server = create_default_server()
     asyncio.run(server.run_stdio())

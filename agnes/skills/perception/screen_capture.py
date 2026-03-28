@@ -2,12 +2,15 @@
 screen_capture - 截取当前游戏画面
 支持全屏截取和区域截取
 """
+
 import base64
 import io
 import time
-from typing import Any, Dict, Optional
+from typing import Any
+
 from PIL import Image
-from agnes.skills.base import BaseSkill, SkillSchema, SkillResult, SkillMetadata
+
+from agnes.skills.base import BaseSkill, SkillMetadata, SkillResult, SkillSchema
 
 
 class ScreenCaptureSkill(BaseSkill):
@@ -21,7 +24,7 @@ class ScreenCaptureSkill(BaseSkill):
         category="perception",
         permission_level="safe",
         cost=0.01,
-        tags=["screen", "capture", "image", "vision", "game"]
+        tags=["screen", "capture", "image", "vision", "game"],
     )
 
     def __init__(self):
@@ -33,6 +36,7 @@ class ScreenCaptureSkill(BaseSkill):
         if self._initialized:
             return
         import mss
+
         self._mss = mss.mss()
         self._initialized = True
 
@@ -41,37 +45,17 @@ class ScreenCaptureSkill(BaseSkill):
             name=self.name,
             description=self.description,
             parameters={
-                "left": {
-                    "type": "integer",
-                    "description": "截取区域左边界坐标，如果不指定则截取全屏"
-                },
-                "top": {
-                    "type": "integer",
-                    "description": "截取区域上边界坐标，如果不指定则截取全屏"
-                },
-                "width": {
-                    "type": "integer",
-                    "description": "截取区域宽度，如果不指定则截取全屏"
-                },
-                "height": {
-                    "type": "integer",
-                    "description": "截取区域高度，如果不指定则截取全屏"
-                },
-                "monitor": {
-                    "type": "integer",
-                    "description": "截取哪个显示器，从1开始计数，默认1",
-                    "default": 1
-                },
+                "left": {"type": "integer", "description": "截取区域左边界坐标，如果不指定则截取全屏"},
+                "top": {"type": "integer", "description": "截取区域上边界坐标，如果不指定则截取全屏"},
+                "width": {"type": "integer", "description": "截取区域宽度，如果不指定则截取全屏"},
+                "height": {"type": "integer", "description": "截取区域高度，如果不指定则截取全屏"},
+                "monitor": {"type": "integer", "description": "截取哪个显示器，从1开始计数，默认1", "default": 1},
                 "quality": {
                     "type": "integer",
                     "description": "PNG 压缩质量（1-100），越大质量越好默认 90",
-                    "default": 90
+                    "default": 90,
                 },
-                "return_base64": {
-                    "type": "boolean",
-                    "description": "是否返回 base64 编码，默认 True",
-                    "default": True
-                }
+                "return_base64": {"type": "boolean", "description": "是否返回 base64 编码，默认 True", "default": True},
             },
             required=[],
             returns={
@@ -80,11 +64,11 @@ class ScreenCaptureSkill(BaseSkill):
                 "height": "integer - 图像高度",
                 "left": "integer - 实际左边界",
                 "top": "integer - 实际上边界",
-                "monitor": "integer - 显示器编号"
-            }
+                "monitor": "integer - 显示器编号",
+            },
         )
 
-    async def execute(self, parameters: Dict[str, Any]) -> SkillResult:
+    async def execute(self, parameters: dict[str, Any]) -> SkillResult:
         start_time = time.time()
 
         try:
@@ -102,8 +86,7 @@ class ScreenCaptureSkill(BaseSkill):
             monitors = self._mss.monitors
             if monitor >= len(monitors):
                 return SkillResult.error(
-                    "invalid_monitor",
-                    f"显示器编号 {monitor + 1} 不存在，系统只有 {len(monitors) - 1} 个显示器"
+                    "invalid_monitor", f"显示器编号 {monitor + 1} 不存在，系统只有 {len(monitors) - 1} 个显示器"
                 )
 
             if left is None or top is None or width is None or height is None:
@@ -113,7 +96,7 @@ class ScreenCaptureSkill(BaseSkill):
                     "left": monitor_box["left"],
                     "top": monitor_box["top"],
                     "width": monitor_box["width"],
-                    "height": monitor_box["height"]
+                    "height": monitor_box["height"],
                 }
             else:
                 # 区域截取 - 相对于显示器左上角
@@ -122,7 +105,7 @@ class ScreenCaptureSkill(BaseSkill):
                     "left": base_monitor["left"] + left,
                     "top": base_monitor["top"] + top,
                     "width": width,
-                    "height": height
+                    "height": height,
                 }
 
             # 截取
@@ -142,7 +125,7 @@ class ScreenCaptureSkill(BaseSkill):
                 "height": screenshot.height,
                 "left": bbox["left"],
                 "top": bbox["top"],
-                "monitor": monitor + 1
+                "monitor": monitor + 1,
             }
 
             if return_base64:
@@ -152,10 +135,7 @@ class ScreenCaptureSkill(BaseSkill):
             return SkillResult.ok(result, execution_time_ms=execution_time)
 
         except ImportError:
-            return SkillResult.error(
-                "dependency_missing",
-                "mss 库未安装，请安装: pip install mss"
-            )
+            return SkillResult.error("dependency_missing", "mss 库未安装，请安装: pip install mss")
         except Exception as e:
             execution_time = (time.time() - start_time) * 1000
             return SkillResult.error("exception", str(e), execution_time)
@@ -168,4 +148,5 @@ class ScreenCaptureSkill(BaseSkill):
 
 # 注册到全局注册表
 from agnes.skills.registry import registry
+
 registry.register(ScreenCaptureSkill())

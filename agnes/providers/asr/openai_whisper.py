@@ -52,9 +52,7 @@ class OpenAIWhisperProvider(ASRProvider):
         except Exception as e:
             raise RuntimeError(f"OpenAI Whisper transcription failed: {str(e)}")
 
-    async def transcribe_file(
-        self, audio_path: str, language: str | None = None, **kwargs
-    ) -> ASRResponse:
+    async def transcribe_file(self, audio_path: str, language: str | None = None, **kwargs) -> ASRResponse:
         try:
             with open(audio_path, "rb") as f:
                 transcript = await self.client.audio.transcriptions.create(

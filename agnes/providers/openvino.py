@@ -19,8 +19,7 @@ class OpenVINOProvider(LLMProvider):
     def __init__(self, model_name_or_path: str, device: str = "AUTO", **kwargs):
         if not HAS_OPENVINO:
             raise ImportError(
-                "OpenVINO dependencies not installed. "
-                "Please install with: pip install openvino transformers torch"
+                "OpenVINO dependencies not installed. Please install with: pip install openvino transformers torch"
             )
 
         self.model_name_or_path = model_name_or_path
@@ -71,9 +70,7 @@ class OpenVINOProvider(LLMProvider):
             full_prompt = f"{system_prompt}\n\n{prompt}"
 
         def _generate():
-            inputs = self.tokenizer(
-                full_prompt, return_tensors="pt", truncation=True, max_length=2048
-            )
+            inputs = self.tokenizer(full_prompt, return_tensors="pt", truncation=True, max_length=2048)
 
             with torch.no_grad():
                 outputs = self.model.generate(
@@ -84,9 +81,7 @@ class OpenVINOProvider(LLMProvider):
                     pad_token_id=self.tokenizer.eos_token_id,
                 )
 
-            generated_text = self.tokenizer.decode(
-                outputs[0][inputs["input_ids"].shape[1] :], skip_special_tokens=True
-            )
+            generated_text = self.tokenizer.decode(outputs[0][inputs["input_ids"].shape[1] :], skip_special_tokens=True)
 
             return generated_text
 
@@ -132,9 +127,7 @@ class OpenVINOProvider(LLMProvider):
             formatted_prompt += f"{role}: {content}\n"
         formatted_prompt += "assistant: "
 
-        return await self.generate(
-            prompt=formatted_prompt, temperature=temperature, max_tokens=max_tokens, **kwargs
-        )
+        return await self.generate(prompt=formatted_prompt, temperature=temperature, max_tokens=max_tokens, **kwargs)
 
     async def chat_stream(
         self,
@@ -143,9 +136,7 @@ class OpenVINOProvider(LLMProvider):
         max_tokens: int | None = None,
         **kwargs,
     ) -> AsyncGenerator[str, None]:
-        response = await self.chat(
-            messages=messages, temperature=temperature, max_tokens=max_tokens, **kwargs
-        )
+        response = await self.chat(messages=messages, temperature=temperature, max_tokens=max_tokens, **kwargs)
 
         for char in response.content:
             yield char

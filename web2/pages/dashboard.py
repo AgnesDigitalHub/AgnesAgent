@@ -3,7 +3,6 @@ Dashboard Page - 使用 python-amis schema
 """
 
 from nicegui import ui
-from web2.schemas import get_dashboard_schema
 
 
 def show_dashboard():
@@ -11,7 +10,6 @@ def show_dashboard():
     # 对于 nicegui 集成，我们仍然保留原生实现，
     # 但如果需要 amis 渲染，可以通过 iframe 或 API 返回 schema
     # 当前保持 nicegui 原生实现
-    from nicegui import ui
     import httpx
 
     async def load_status():
@@ -42,12 +40,8 @@ def show_dashboard():
         # Quick actions
         ui.label("快捷操作").classes("text-lg font-semibold mb-4")
         with ui.row().classes("gap-4"):
-            ui.button("去配置模型", on_click=lambda: ui.navigate.to("/web2/models")).classes(
-                "bg-blue-500"
-            )
-            ui.button("开始聊天", on_click=lambda: ui.navigate.to("/web2/chat")).classes(
-                "bg-green-500"
-            )
+            ui.button("去配置模型", on_click=lambda: ui.navigate.to("/web2/models")).classes("bg-blue-500")
+            ui.button("开始聊天", on_click=lambda: ui.navigate.to("/web2/chat")).classes("bg-green-500")
 
         # Load status asynchronously
         async def update_status():

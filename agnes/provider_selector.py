@@ -9,8 +9,15 @@ class ProviderSelector:
     """Provider 选择器"""
 
     LLM_PROVIDERS = [
-        "openai", "openai-compat", "deepseek", "gemini", 
-        "anthropic", "ollama", "openvino-server", "openvino", "generic"
+        "openai",
+        "openai-compat",
+        "deepseek",
+        "gemini",
+        "anthropic",
+        "ollama",
+        "openvino-server",
+        "openvino",
+        "generic",
     ]
     ASR_PROVIDERS = ["local_whisper", "openai_whisper"]
 
@@ -88,15 +95,17 @@ class ProviderSelector:
                 "openai-compat": "https://api.openai.com/v1",
                 "generic": "http://localhost:8000/v1",
             }
-            
+
             default_model = (
-                config.llm.model if config and config.llm.provider == provider_type 
+                config.llm.model
+                if config and config.llm.provider == provider_type
                 else default_models.get(provider_type, "gpt-3.5-turbo")
             )
             llm_config.model = input(f"  模型名称 [{default_model}]: ").strip() or default_model
 
             default_base_url = (
-                config.llm.base_url if config and config.llm.provider == provider_type 
+                config.llm.base_url
+                if config and config.llm.provider == provider_type
                 else default_base_urls.get(provider_type, "http://localhost:8000/v1")
             )
             base_url = input(f"  Base URL [{default_base_url}]: ").strip()

@@ -24,11 +24,7 @@ async def _get_status():
 
 def show_chat():
     """Show Chat page with real WebSocket streaming"""
-    with (
-        ui.element("div")
-        .classes("w-full")
-        .style("padding: 20px; padding-top: 8px; padding-bottom: 40px;")
-    ):
+    with ui.element("div").classes("w-full").style("padding: 20px; padding-top: 8px; padding-bottom: 40px;"):
         # ── Page header ─────────────────���────────────────────────
         with ui.row().classes("w-full justify-between items-center px-4 py-3 pb-2"):
             with ui.column():
@@ -134,14 +130,10 @@ def show_chat():
                                     elif t == "done":
                                         break
                                     elif t == "error":
-                                        agnes_label.set_text(
-                                            f"[错误] {data.get('message', '未知错误')}"
-                                        )
+                                        agnes_label.set_text(f"[错误] {data.get('message', '未知错误')}")
                                         break
                         except Exception as e:
-                            agnes_label.set_text(
-                                f"[连接失败] {e}\n\n请检查服务是否已启动，并已激活模型。"
-                            )
+                            agnes_label.set_text(f"[连接失败] {e}\n\n请检查服务是否已启动，并已激活模型。")
 
                     ui.timer(0.05, do_ws_chat, once=True)
 

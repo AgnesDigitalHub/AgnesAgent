@@ -2,9 +2,11 @@
 Skill 注册表（Registry）
 统一存储所有可用技能的 schema，支持动态加载和版本管理
 """
+
 import logging
-from typing import Any, Dict, List, Optional, Set, Tuple
-from agnes.skills.base import BaseSkill, SkillSchema, SkillMetadata
+from typing import Any
+
+from agnes.skills.base import BaseSkill, SkillSchema
 
 logger = logging.getLogger(__name__)
 
@@ -13,14 +15,14 @@ class SkillRegistry:
     """Skill 注册表，管理所有已注册的 Skill"""
 
     def __init__(self):
-        self._skills: Dict[str, BaseSkill] = {}
+        self._skills: dict[str, BaseSkill] = {}
         # 版本管理: skill_name -> List[(version, skill)]
-        self._versions: Dict[str, List[Tuple[str, BaseSkill]]] = {}
+        self._versions: dict[str, list[tuple[str, BaseSkill]]] = {}
         # 统计信息
-        self._call_count: Dict[str, int] = {}
-        self._success_count: Dict[str, int] = {}
-        self._total_execution_time: Dict[str, float] = {}
-        self._error_stats: Dict[str, Dict[str, int]] = {}
+        self._call_count: dict[str, int] = {}
+        self._success_count: dict[str, int] = {}
+        self._total_execution_time: dict[str, float] = {}
+        self._error_stats: dict[str, dict[str, int]] = {}
 
     def register(self, skill: BaseSkill) -> None:
         """注册一个新 Skill"""
@@ -32,8 +34,7 @@ class SkillRegistry:
         if name in self._skills:
             existing = self._skills[name]
             existing_version = existing.get_metadata().version
-            logger.warning(f"Skill '{name}' already registered (v{existing_version}), "
-                         f"overwriting with v{version}")
+            logger.warning(f"Skill '{name}' already registered (v{existing_version}), overwriting with v{version}")
 
         # 注册
         self._skills[name] = skill
@@ -62,11 +63,11 @@ class SkillRegistry:
         logger.info(f"Unregistered skill: {name}")
         return True
 
-    def get(self, name: str) -> Optional[BaseSkill]:
+    def get(self, name: str) -> BaseSkill | None:
         """获取当前激活版本的 Skill"""
         return self._skills.get(name)
 
-    def get_version(self, name: str, version: str) -> Optional[BaseSkill]:
+    def get_version(self, name: str, version: str) -> BaseSkill | None:
         """获取特定版本的 Skill"""
         if name not in self._versions:
             return None
@@ -75,21 +76,21 @@ class SkillRegistry:
                 return skill
         return None
 
-    def list_skills(self) -> List[BaseSkill]:
+    def list_skills(self) -> list[BaseSkill]:
         """列出所有当前激活的 Skill"""
         return list(self._skills.values())
 
-    def list_versions(self, name: str) -> List[str]:
+    def list_versions(self, name: str) -> list[str]:
         """列出某个 Skill 的所有可用版本"""
         if name not in self._versions:
             return []
         return [v for v, _ in self._versions[name]]
 
-    def get_all_schemas(self) -> List[SkillSchema]:
+    def get_all_schemas(self) -> list[SkillSchema]:
         """获取所有 Skill 的 Schema 列表，用于 Function Calling"""
         return [skill.get_schema() for skill in self._skills.values()]
 
-    def get_all_openai_functions(self) -> List[Dict[str, Any]]:
+    def get_all_openai_functions(self) -> list[dict[str, Any]]:
         """获取 OpenAI Function Calling 格式的工具定义"""
         functions = []
         for skill in self._skills.values():
@@ -99,17 +100,13 @@ class SkillRegistry:
                 "function": {
                     "name": schema.name,
                     "description": schema.description,
-                    "parameters": {
-                        "type": "object",
-                        "properties": schema.parameters,
-                        "required": schema.required
-                    }
-                }
+                    "parameters": {"type": "object", "properties": schema.parameters, "required": schema.required},
+                },
             }
             functions.append(function_def)
         return functions
 
-    def get_stats(self, name: str) -> Optional[Dict[str, Any]]:
+    def get_stats(self, name: str) -> dict[str, Any] | None:
         """获取某个 Skill 的统计信息"""
         if name not in self._call_count:
             return None
@@ -128,10 +125,10 @@ class SkillRegistry:
             "success_rate": success_rate,
             "average_execution_time_ms": avg_time,
             "total_execution_time_ms": total_time,
-            "error_stats": self._error_stats[name].copy()
+            "error_stats": self._error_stats[name].copy(),
         }
 
-    def record_call(self, name: str, success: bool, execution_time_ms: float, error_type: Optional[str] = None) -> None:
+    def record_call(self, name: str, success: bool, execution_time_ms: float, error_type: str | None = None) -> None:
         """记录一次调用，用于统计"""
         if name not in self._call_count:
             self._call_count[name] = 0
@@ -147,15 +144,11 @@ class SkillRegistry:
         elif error_type:
             self._error_stats[name][error_type] = self._error_stats[name].get(error_type, 0) + 1
 
-    def get_all_stats(self) -> Dict[str, Dict[str, Any]]:
+    def get_all_stats(self) -> dict[str, dict[str, Any]]:
         """获取所有 Skill 的统计信息"""
-        return {
-            name: self.get_stats(name)
-            for name in self._skills.keys()
-            if name in self._call_count
-        }
+        return {name: self.get_stats(name) for name in self._skills.keys() if name in self._call_count}
 
-    def clear_stats(self, name: Optional[str] = None) -> None:
+    def clear_stats(self, name: str | None = None) -> None:
         """清空统计信息"""
         if name:
             if name in self._call_count:

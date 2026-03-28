@@ -2,12 +2,15 @@
 ocr_read - 识别图像中的文字
 支持从截图或区域进行 OCR 识别
 """
-import time
+
 import base64
 import io
-from typing import Any, Dict, Optional
+import time
+from typing import Any
+
 from PIL import Image
-from agnes.skills.base import BaseSkill, SkillSchema, SkillResult, SkillMetadata
+
+from agnes.skills.base import BaseSkill, SkillMetadata, SkillResult, SkillSchema
 
 
 class OcrReadSkill(BaseSkill):
@@ -21,7 +24,7 @@ class OcrReadSkill(BaseSkill):
         category="perception",
         permission_level="safe",
         cost=0.02,
-        tags=["ocr", "text", "recognition", "vision"]
+        tags=["ocr", "text", "recognition", "vision"],
     )
 
     def __init__(self):
@@ -33,6 +36,7 @@ class OcrReadSkill(BaseSkill):
         if self._initialized:
             return
         import easyocr
+
         # 默认加载中英文模型，可根据需要配置
         self._reader = easyocr.Reader(["ch_sim", "en"])
         self._initialized = True
@@ -42,36 +46,24 @@ class OcrReadSkill(BaseSkill):
             name=self.name,
             description=self.description,
             parameters={
-                "image_base64": {
-                    "type": "string",
-                    "description": "Base64 编码的 PNG/JPG 图像数据"
-                },
+                "image_base64": {"type": "string", "description": "Base64 编码的 PNG/JPG 图像数据"},
                 "region": {
                     "type": "array",
-                    "items": {
-                        "type": "integer"
-                    },
-                    "description": "裁剪区域 [left, top, width, height]，可选"
+                    "items": {"type": "integer"},
+                    "description": "裁剪区域 [left, top, width, height]，可选",
                 },
                 "detail": {
                     "type": "integer",
                     "description": "返回结果细节级别，0=仅纯文本，1=带框坐标，默认 0",
-                    "default": 0
+                    "default": 0,
                 },
-                "paragraph": {
-                    "type": "boolean",
-                    "description": "是否将文本合并为段落，默认 True",
-                    "default": True
-                }
+                "paragraph": {"type": "boolean", "description": "是否将文本合并为段落，默认 True", "default": True},
             },
             required=["image_base64"],
-            returns={
-                "text": "string - 识别出的纯文本",
-                "boxes": "array - 如果 detail=1，返回每个文字框的信息"
-            }
+            returns={"text": "string - 识别出的纯文本", "boxes": "array - 如果 detail=1，返回每个文字框的信息"},
         )
 
-    async def execute(self, parameters: Dict[str, Any]) -> SkillResult:
+    async def execute(self, parameters: dict[str, Any]) -> SkillResult:
         start_time = time.time()
 
         try:
@@ -104,31 +96,22 @@ class OcrReadSkill(BaseSkill):
             if detail == 0:
                 # 只返回纯文本
                 full_text = "\n".join([text for _, text, _ in result])
-                return SkillResult.ok({
-                    "text": full_text,
-                    "boxes": None
-                }, execution_time_ms=execution_time)
+                return SkillResult.ok({"text": full_text, "boxes": None}, execution_time_ms=execution_time)
             else:
                 # 返回带坐标的详细信息
                 boxes = []
                 full_text = []
                 for bbox, text, conf in result:
-                    boxes.append({
-                        "bbox": [bbox[0][0], bbox[0][1], bbox[2][0], bbox[2][1]],
-                        "text": text,
-                        "confidence": conf
-                    })
+                    boxes.append(
+                        {"bbox": [bbox[0][0], bbox[0][1], bbox[2][0], bbox[2][1]], "text": text, "confidence": conf}
+                    )
                     full_text.append(text)
-                return SkillResult.ok({
-                    "text": "\n".join(full_text),
-                    "boxes": boxes
-                }, execution_time_ms=execution_time)
+                return SkillResult.ok({"text": "\n".join(full_text), "boxes": boxes}, execution_time_ms=execution_time)
 
         except ImportError:
             return SkillResult.error(
                 "dependency_missing",
-                "easyocr 库未安装，请安装: pip install easyocr\n"
-                "首次运行会自动下载模型文件，请耐心等待"
+                "easyocr 库未安装，请安装: pip install easyocr\n首次运行会自动下载模型文件，请耐心等待",
             )
         except Exception as e:
             execution_time = (time.time() - start_time) * 1000
@@ -137,4 +120,5 @@ class OcrReadSkill(BaseSkill):
 
 # 注册到全局注册表
 from agnes.skills.registry import registry
+
 registry.register(OcrReadSkill())

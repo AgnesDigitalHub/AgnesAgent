@@ -1,0 +1,29 @@
+# 示例 YAML Skill - 计算器
+# 展示如何通过 YAML 文件定义一个技能
+
+name: calculator
+description: 简单的计算器，执行基本数学运算
+version: 1.0.0
+category: utility
+tags:
+  - 工具
+  - 计算
+
+parameters:
+  expression:
+    type: string
+    description: 要计算的数学表达式，例如 "2 + 3 * 4"
+
+required:
+  - expression
+
+returns:
+  type: object
+  properties:
+    result:
+      type: number
+      description: 计算结果
+
+execution: |
+  result = eval(params['expression'])
+execution_type: python

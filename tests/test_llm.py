@@ -2,7 +2,7 @@
 
 import pytest
 
-from agnes.core import ChatHistory, PromptTemplates
+from agnes.core import ChatHistory, PromptTemplate
 
 
 class TestChatHistory:
@@ -81,23 +81,23 @@ class TestPromptTemplates:
 
     def test_list_templates(self):
         """测试列出所有模板"""
-        templates = PromptTemplates.list_templates()
+        templates = PromptTemplate.list_templates()
         assert len(templates) > 0
 
     def test_get_template(self):
         """测试获取指定模板"""
-        template = PromptTemplates.get_template("default_assistant")
+        template = PromptTemplate.get_template("default_assistant")
         assert template is not None
         assert template.name == "default_assistant"
 
     def test_template_format(self):
         """测试模板格式化"""
-        template = PromptTemplates.TRANSLATOR
+        template = PromptTemplate.TRANSLATOR
         result = template.format(target_language="英语")
         assert "英语" in result
 
     def test_template_format_missing_variable(self):
         """测试模板缺少变量时抛出异常"""
-        template = PromptTemplates.VTUBER
+        template = PromptTemplate.VTUBER
         with pytest.raises(ValueError):
             template.format(name="测试")  # 缺少其他变量

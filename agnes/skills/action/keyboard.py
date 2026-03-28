@@ -2,10 +2,12 @@
 keyboard_action - 键盘输入控制
 支持按键按下、松开、单次点击、组合键
 """
-import time
+
 import asyncio
-from typing import Any, Dict, List, Optional
-from agnes.skills.base import BaseSkill, SkillSchema, SkillResult, SkillMetadata
+import time
+from typing import Any
+
+from agnes.skills.base import BaseSkill, SkillMetadata, SkillResult, SkillSchema
 
 
 class KeyboardActionSkill(BaseSkill):
@@ -19,7 +21,7 @@ class KeyboardActionSkill(BaseSkill):
         category="action",
         permission_level="restricted",
         cost=0.0,
-        tags=["keyboard", "input", "control"]
+        tags=["keyboard", "input", "control"],
     )
 
     def __init__(self):
@@ -31,6 +33,7 @@ class KeyboardActionSkill(BaseSkill):
         if self._initialized:
             return
         from pynput import keyboard
+
         self._controller = keyboard.Controller()
         self._keyboard = keyboard
         self._initialized = True
@@ -50,33 +53,26 @@ class KeyboardActionSkill(BaseSkill):
                         "- tap: 点击一次（按下后立即松开）\n"
                         "- combo: 组合键（同时按下多个）\n"
                         "- sequence: 顺序按键"
-                    )
+                    ),
                 },
                 "key": {
                     "type": "string",
-                    "description": "按键名称，适用于 press/release/tap。例如: a, enter, space, tab, backspace, escape, f1-f12, left, right, up, down, shift, ctrl, alt"
+                    "description": "按键名称，适用于 press/release/tap。例如: a, enter, space, tab, backspace, escape, f1-f12, left, right, up, down, shift, ctrl, alt",
                 },
                 "keys": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "按键列表，适用于 combo/sequence"
+                    "description": "按键列表，适用于 combo/sequence",
                 },
                 "delay_ms": {
                     "type": "integer",
                     "description": "按键之间延迟毫秒，适用于 combo/sequence，默认 50",
-                    "default": 50
+                    "default": 50,
                 },
-                "post_delay_ms": {
-                    "type": "integer",
-                    "description": "动作完成后额外延迟毫秒，默认 0",
-                    "default": 0
-                }
+                "post_delay_ms": {"type": "integer", "description": "动作完成后额外延迟毫秒，默认 0", "default": 0},
             },
             required=["action"],
-            returns={
-                "success": "boolean - 是否成功",
-                "action": "string - 执行的动作"
-            }
+            returns={"success": "boolean - 是否成功", "action": "string - 执行的动作"},
         )
 
     def _parse_key(self, key_name: str):
@@ -94,7 +90,6 @@ class KeyboardActionSkill(BaseSkill):
             "win": self._keyboard.Key.cmd,
             "windows": self._keyboard.Key.cmd,
             "menu": self._keyboard.Key.menu,
-
             # 导航
             "esc": self._keyboard.Key.esc,
             "escape": self._keyboard.Key.esc,
@@ -105,13 +100,11 @@ class KeyboardActionSkill(BaseSkill):
             "delete": self._keyboard.Key.delete,
             "space": self._keyboard.Key.space,
             "spacebar": self._keyboard.Key.space,
-
             # 方向键
             "up": self._keyboard.Key.up,
             "down": self._keyboard.Key.down,
             "left": self._keyboard.Key.left,
             "right": self._keyboard.Key.right,
-
             # 功能键
             "f1": self._keyboard.Key.f1,
             "f2": self._keyboard.Key.f2,
@@ -125,7 +118,6 @@ class KeyboardActionSkill(BaseSkill):
             "f10": self._keyboard.Key.f10,
             "f11": self._keyboard.Key.f11,
             "f12": self._keyboard.Key.f12,
-
             # 编辑
             "home": self._keyboard.Key.home,
             "end": self._keyboard.Key.end,
@@ -149,7 +141,7 @@ class KeyboardActionSkill(BaseSkill):
         # 未知
         raise ValueError(f"Unknown key name: {key_name}")
 
-    async def execute(self, parameters: Dict[str, Any]) -> SkillResult:
+    async def execute(self, parameters: dict[str, Any]) -> SkillResult:
         start_time = time.time()
 
         try:
@@ -211,15 +203,15 @@ class KeyboardActionSkill(BaseSkill):
                 await asyncio.sleep(post_delay_ms / 1000.0)
 
             execution_time = (time.time() - start_time) * 1000
-            return SkillResult.ok({
-                "action": action,
-            }, execution_time_ms=execution_time)
+            return SkillResult.ok(
+                {
+                    "action": action,
+                },
+                execution_time_ms=execution_time,
+            )
 
         except ImportError:
-            return SkillResult.error(
-                "dependency_missing",
-                "pynput 库未安装，请安装: pip install pynput"
-            )
+            return SkillResult.error("dependency_missing", "pynput 库未安装，请安装: pip install pynput")
         except ValueError as e:
             execution_time = (time.time() - start_time) * 1000
             return SkillResult.error("invalid_key", str(e), execution_time)
@@ -230,4 +222,5 @@ class KeyboardActionSkill(BaseSkill):
 
 # 注册到全局注册表
 from agnes.skills.registry import registry
+
 registry.register(KeyboardActionSkill())

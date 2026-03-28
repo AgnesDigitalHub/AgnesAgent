@@ -2,13 +2,11 @@
 数据模型定义 - 模型配置
 """
 
-from dataclasses import dataclass, asdict
-from typing import Optional
-from datetime import datetime
-import uuid
 import json
+import uuid
+from dataclasses import asdict, dataclass
+from datetime import datetime
 from pathlib import Path
-from typing import List, Dict, Optional
 
 from agnes.utils.config_loader import LLMConfig
 
@@ -16,28 +14,29 @@ from agnes.utils.config_loader import LLMConfig
 @dataclass
 class LLMProfile:
     """LLM 配置档案"""
+
     id: str
     name: str
     description: str
     provider: str
     model: str
-    base_url: Optional[str] = None
-    api_key: Optional[str] = None
+    base_url: str | None = None
+    api_key: str | None = None
     temperature: float = 0.7
-    max_tokens: Optional[int] = None
+    max_tokens: int | None = None
     is_active: bool = False
     created_at: str = ""
     updated_at: str = ""
-    
+
     def to_dict(self) -> dict:
         """转换为字典"""
         return asdict(self)
-    
+
     @classmethod
     def from_dict(cls, data: dict) -> "LLMProfile":
         """从字典创建"""
         return cls(**data)
-    
+
     def to_llm_config(self) -> LLMConfig:
         """转换为 Agnes LLMConfig"""
         return LLMConfig(
@@ -52,50 +51,50 @@ class LLMProfile:
 
 class ProfileStore:
     """LLM 配置档案存储"""
-    
+
     def __init__(self, storage_path: Path):
         self.storage_path = storage_path
         self.storage_path.parent.mkdir(parents=True, exist_ok=True)
-    
+
     def _read_file(self) -> dict:
         """读取存储文件"""
         if not self.storage_path.exists():
             return {"profiles": [], "active_id": None}
-        
-        with open(self.storage_path, "r", encoding="utf-8") as f:
+
+        with open(self.storage_path, encoding="utf-8") as f:
             return json.load(f)
-    
+
     def _write_file(self, data: dict) -> None:
         """写入存储文件"""
         with open(self.storage_path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
-    
-    def list_profiles(self) -> List[LLMProfile]:
+
+    def list_profiles(self) -> list[LLMProfile]:
         """列出所有配置"""
         data = self._read_file()
         profiles = []
         for p_data in data.get("profiles", []):
             profiles.append(LLMProfile.from_dict(p_data))
         return profiles
-    
-    def get_profile(self, profile_id: str) -> Optional[LLMProfile]:
+
+    def get_profile(self, profile_id: str) -> LLMProfile | None:
         """获取单个配置"""
         profiles = self.list_profiles()
         for p in profiles:
             if p.id == profile_id:
                 return p
         return None
-    
+
     def create_profile(
         self,
         name: str,
         description: str,
         provider: str,
         model: str,
-        base_url: Optional[str] = None,
-        api_key: Optional[str] = None,
+        base_url: str | None = None,
+        api_key: str | None = None,
         temperature: float = 0.7,
-        max_tokens: Optional[int] = None,
+        max_tokens: int | None = None,
     ) -> LLMProfile:
         """创建新配置"""
         now = datetime.now().isoformat()
@@ -113,24 +112,24 @@ class ProfileStore:
             created_at=now,
             updated_at=now,
         )
-        
+
         data = self._read_file()
         profiles = data.get("profiles", [])
         profiles.append(profile.to_dict())
         data["profiles"] = profiles
         self._write_file(data)
-        
+
         return profile
-    
+
     def update_profile(
         self,
         profile_id: str,
         **kwargs,
-    ) -> Optional[LLMProfile]:
+    ) -> LLMProfile | None:
         """更新配置"""
         data = self._read_file()
         profiles = data.get("profiles", [])
-        
+
         for i, p_data in enumerate(profiles):
             if p_data["id"] == profile_id:
                 # 更新字段
@@ -138,40 +137,40 @@ class ProfileStore:
                     if value is not None:
                         p_data[key] = value
                 p_data["updated_at"] = datetime.now().isoformat()
-                
+
                 profiles[i] = p_data
                 data["profiles"] = profiles
                 self._write_file(data)
-                
+
                 return LLMProfile.from_dict(p_data)
-        
+
         return None
-    
+
     def delete_profile(self, profile_id: str) -> bool:
         """删除配置"""
         data = self._read_file()
         profiles = data.get("profiles", [])
-        
+
         original_len = len(profiles)
         profiles = [p for p in profiles if p["id"] != profile_id]
-        
+
         if len(profiles) == original_len:
             return False
-        
+
         # 如果删除的是激活的，清除激活状态
         if data.get("active_id") == profile_id:
             data["active_id"] = None
-        
+
         data["profiles"] = profiles
         self._write_file(data)
-        
+
         return True
-    
+
     def activate_profile(self, profile_id: str) -> bool:
         """激活配置"""
         data = self._read_file()
         profiles = data.get("profiles", [])
-        
+
         # 先取消所有激活
         found = False
         for p_data in profiles:
@@ -180,27 +179,27 @@ class ProfileStore:
                 found = True
             else:
                 p_data["is_active"] = False
-        
+
         if not found:
             return False
-        
+
         data["active_id"] = profile_id
         data["profiles"] = profiles
         self._write_file(data)
-        
+
         return True
-    
-    def get_active_profile(self) -> Optional[LLMProfile]:
+
+    def get_active_profile(self) -> LLMProfile | None:
         """获取当前激活的配置"""
         data = self._read_file()
         active_id = data.get("active_id")
-        
+
         if not active_id:
             return None
-        
+
         return self.get_profile(active_id)
-    
-    def get_active_id(self) -> Optional[str]:
+
+    def get_active_id(self) -> str | None:
         """获取当前激活的 ID"""
         data = self._read_file()
         return data.get("active_id")
@@ -208,20 +207,22 @@ class ProfileStore:
 
 # ============ Agent 模型 ============
 
+
 @dataclass
 class Agent:
     """Agent 定义"""
+
     id: str
     name: str
     description: str
     enabled: bool
     created_at: str = ""
     updated_at: str = ""
-    
+
     def to_dict(self) -> dict:
         """转换为字典"""
         return asdict(self)
-    
+
     @classmethod
     def from_dict(cls, data: dict) -> "Agent":
         """从字典创建"""
@@ -230,40 +231,40 @@ class Agent:
 
 class AgentStore:
     """Agent 存储"""
-    
+
     def __init__(self, storage_path: Path):
         self.storage_path = storage_path
         self.storage_path.parent.mkdir(parents=True, exist_ok=True)
-    
+
     def _read_file(self) -> dict:
         """读取存储文件"""
         if not self.storage_path.exists():
             return {"agents": []}
-        
-        with open(self.storage_path, "r", encoding="utf-8") as f:
+
+        with open(self.storage_path, encoding="utf-8") as f:
             return json.load(f)
-    
+
     def _write_file(self, data: dict) -> None:
         """写入存储文件"""
         with open(self.storage_path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
-    
-    def list_agents(self) -> List[Agent]:
+
+    def list_agents(self) -> list[Agent]:
         """列出所有 Agent"""
         data = self._read_file()
         agents = []
         for a_data in data.get("agents", []):
             agents.append(Agent.from_dict(a_data))
         return agents
-    
-    def get_agent(self, agent_id: str) -> Optional[Agent]:
+
+    def get_agent(self, agent_id: str) -> Agent | None:
         """获取单个 Agent"""
         agents = self.list_agents()
         for a in agents:
             if a.id == agent_id:
                 return a
         return None
-    
+
     def create_agent(
         self,
         name: str,
@@ -280,24 +281,24 @@ class AgentStore:
             created_at=now,
             updated_at=now,
         )
-        
+
         data = self._read_file()
         agents = data.get("agents", [])
         agents.append(agent.to_dict())
         data["agents"] = agents
         self._write_file(data)
-        
+
         return agent
-    
+
     def update_agent(
         self,
         agent_id: str,
         **kwargs,
-    ) -> Optional[Agent]:
+    ) -> Agent | None:
         """更新 Agent"""
         data = self._read_file()
         agents = data.get("agents", [])
-        
+
         for i, a_data in enumerate(agents):
             if a_data["id"] == agent_id:
                 # 更新字段
@@ -305,42 +306,42 @@ class AgentStore:
                     if value is not None:
                         a_data[key] = value
                 a_data["updated_at"] = datetime.now().isoformat()
-                
+
                 agents[i] = a_data
                 data["agents"] = agents
                 self._write_file(data)
-                
+
                 return Agent.from_dict(a_data)
-        
+
         return None
-    
+
     def delete_agent(self, agent_id: str) -> bool:
         """删除 Agent"""
         data = self._read_file()
         agents = data.get("agents", [])
-        
+
         original_len = len(agents)
         agents = [a for a in agents if a["id"] != agent_id]
-        
+
         if len(agents) == original_len:
             return False
-        
+
         data["agents"] = agents
         self._write_file(data)
-        
+
         return True
-    
-    def bulk_delete_agents(self, agent_ids: List[str]) -> int:
+
+    def bulk_delete_agents(self, agent_ids: list[str]) -> int:
         """批量删除 Agent"""
         data = self._read_file()
         agents = data.get("agents", [])
-        
+
         original_len = len(agents)
         agents = [a for a in agents if a["id"] not in agent_ids]
         deleted_count = original_len - len(agents)
-        
+
         if deleted_count > 0:
             data["agents"] = agents
             self._write_file(data)
-        
+
         return deleted_count

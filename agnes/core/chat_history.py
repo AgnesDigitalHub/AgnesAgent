@@ -67,9 +67,7 @@ class ChatHistory:
                 )
                 return
         # 否则添加到开头
-        self.messages.insert(
-            0, ChatMessage(role="system", content=content, metadata=metadata or {})
-        )
+        self.messages.insert(0, ChatMessage(role="system", content=content, metadata=metadata or {}))
 
     def to_openai_format(self) -> list[dict[str, str]]:
         """转换为 OpenAI API 格式"""

@@ -3,13 +3,15 @@ Skill 调用引擎
 解析 LLM Function Calling 输出，调度 Skill 执行，处理结果
 支持本地 Skills 和远程 MCP 工具调用
 """
+
 import asyncio
-import time
 import logging
-from typing import Any, Dict, List, Optional, Tuple, Union
-from agnes.skills.base import BaseSkill, SkillResult
-from agnes.skills.registry import SkillRegistry, registry
+import time
+from typing import Any
+
 from agnes.mcp.client import MCPClient
+from agnes.skills.base import SkillResult
+from agnes.skills.registry import SkillRegistry, registry
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +24,7 @@ class SkillCallEngine:
     def __init__(
         self,
         skill_registry: SkillRegistry = registry,
-        mcp_client: Optional[MCPClient] = None,
+        mcp_client: MCPClient | None = None,
         default_timeout: float = 30.0,
         max_retries: int = 1,
     ):
@@ -38,9 +40,9 @@ class SkillCallEngine:
     async def call(
         self,
         skill_name: str,
-        parameters: Dict[str, Any],
-        timeout: Optional[float] = None,
-        retries: Optional[int] = None,
+        parameters: dict[str, Any],
+        timeout: float | None = None,
+        retries: int | None = None,
     ) -> SkillResult:
         """调用单个 Skill，自动判断是本地还是远程 MCP
         远程格式: server_id/tool_name
@@ -72,10 +74,7 @@ class SkillCallEngine:
 
                 # 记录统计
                 self.registry.record_call(
-                    skill_name,
-                    result.success,
-                    result.execution_time_ms or execution_time,
-                    result.error_type
+                    skill_name, result.success, result.execution_time_ms or execution_time, result.error_type
                 )
 
                 if not result.execution_time_ms:
@@ -83,7 +82,7 @@ class SkillCallEngine:
 
                 return result
 
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 last_error = "Execution timed out"
                 error_type = "timeout"
             except Exception as e:
@@ -102,9 +101,9 @@ class SkillCallEngine:
     async def _call_mcp_tool(
         self,
         full_name: str,
-        parameters: Dict[str, Any],
-        timeout: Optional[float] = None,
-        retries: Optional[int] = None,
+        parameters: dict[str, Any],
+        timeout: float | None = None,
+        retries: int | None = None,
     ) -> SkillResult:
         """调用 MCP 工具"""
         timeout = timeout if timeout is not None else self.default_timeout
@@ -117,8 +116,7 @@ class SkillCallEngine:
         for attempt in range(retries + 1):
             try:
                 result = await asyncio.wait_for(
-                    self.mcp_client.call_global_tool(full_name, parameters),
-                    timeout=timeout
+                    self.mcp_client.call_global_tool(full_name, parameters), timeout=timeout
                 )
                 execution_time = (time.time() - start_time) * 1000
 
@@ -129,7 +127,7 @@ class SkillCallEngine:
                 else:
                     return SkillResult.ok({"result": result}, execution_time_ms=execution_time)
 
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 last_error = "MCP tool execution timed out"
                 error_type = "timeout"
             except Exception as e:
@@ -144,9 +142,9 @@ class SkillCallEngine:
 
     async def call_parallel(
         self,
-        calls: List[Tuple[str, Dict[str, Any]]],
-        timeout: Optional[float] = None,
-    ) -> List[SkillResult]:
+        calls: list[tuple[str, dict[str, Any]]],
+        timeout: float | None = None,
+    ) -> list[SkillResult]:
         """并行调用多个 Skill"""
         tasks = []
         for skill_name, parameters in calls:
@@ -157,15 +155,15 @@ class SkillCallEngine:
 
     async def call_chain(
         self,
-        chain: List[Tuple[str, Dict[str, Any], Optional[str]]],
-    ) -> List[SkillResult]:
+        chain: list[tuple[str, dict[str, Any], str | None]],
+    ) -> list[SkillResult]:
         """
         调用链 - 前一个 Skill 的输出可以作为后一个的输入
         每个条目: (skill_name, parameters, output_to_input_var)
         如果 output_to_input_var 设置了，则将结果放到上下文中，后续参数可以用 {var} 引用
         """
-        context: Dict[str, Any] = {}
-        results: List[SkillResult] = []
+        context: dict[str, Any] = {}
+        results: list[SkillResult] = []
 
         for skill_name, parameters, output_var in chain:
             # 替换参数中的上下文变量
@@ -185,11 +183,12 @@ class SkillCallEngine:
 
         return results
 
-    def _resolve_parameters(self, params: Any, context: Dict[str, Any]) -> Any:
+    def _resolve_parameters(self, params: Any, context: dict[str, Any]) -> Any:
         """递归解析参数中的 {var} 占位符"""
         if isinstance(params, str):
             # 替换 {var} 格式的占位符
             import string
+
             return string.Formatter().vformat(params, [], context)
         elif isinstance(params, dict):
             return {k: self._resolve_parameters(v, context) for k, v in params.items()}
@@ -198,7 +197,7 @@ class SkillCallEngine:
         else:
             return params
 
-    def parse_llm_function_call(self, llm_output: str) -> List[Tuple[str, Dict[str, Any]]]:
+    def parse_llm_function_call(self, llm_output: str) -> list[tuple[str, dict[str, Any]]]:
         """
         从 LLM 输出中解析 Function Call
         这里假设 LLM 输出了正确的 JSON 格式，实际使用时需要处理各种异常情况

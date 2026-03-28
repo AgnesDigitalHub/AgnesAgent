@@ -47,6 +47,16 @@ menus:
     icon: "build"
     url: "/tools"
 
+  - name: "mcp"
+    label: "MCP 管理"
+    icon: "plug"
+    url: "/mcp"
+
+  - name: "skill"
+    label: "Skill 调试器"
+    icon: "bug_report"
+    url: "/skill"
+
   - name: "knowledge"
     label: "知识库/RAG"
     icon: "menu_book"
@@ -98,6 +108,14 @@ pages:
 
   prompts:
     title: "Prompt IDE"
+    schema: null
+
+  mcp:
+    title: "MCP 管理"
+    schema: null
+
+  skill:
+    title: "Skill 调试器"
     schema: null
 
   knowledge:

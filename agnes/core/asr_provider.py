@@ -25,9 +25,7 @@ class ASRProvider(ABC):
         pass
 
     @abstractmethod
-    async def transcribe_file(
-        self, audio_path: str, language: str | None = None, **kwargs
-    ) -> ASRResponse:
+    async def transcribe_file(self, audio_path: str, language: str | None = None, **kwargs) -> ASRResponse:
         pass
 
     @abstractmethod

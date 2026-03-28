@@ -37,9 +37,7 @@ class OpenAIProvider(LLMProvider):
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
 
-        return await self.chat(
-            messages=messages, temperature=temperature, max_tokens=max_tokens, **kwargs
-        )
+        return await self.chat(messages=messages, temperature=temperature, max_tokens=max_tokens, **kwargs)
 
     async def generate_stream(
         self,

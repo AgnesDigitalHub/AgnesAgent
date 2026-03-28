@@ -106,9 +106,7 @@ class AudioRecorder:
 
     def __init__(self, config: AudioConfig | None = None):
         if not HAS_SOUNDDEVICE:
-            raise ImportError(
-                "sounddevice not installed. Please install with: pip install sounddevice"
-            )
+            raise ImportError("sounddevice not installed. Please install with: pip install sounddevice")
 
         self.config = config or AudioConfig()
         self._stream: sd.InputStream | None = None
@@ -213,9 +211,7 @@ class AudioUtils:
         return audio
 
     @staticmethod
-    def trim_silence(
-        audio: np.ndarray, threshold: float = 0.01, min_silence_len: int = 1000
-    ) -> np.ndarray:
+    def trim_silence(audio: np.ndarray, threshold: float = 0.01, min_silence_len: int = 1000) -> np.ndarray:
         """裁剪首尾静音"""
         if len(audio) == 0:
             return audio

@@ -18,23 +18,15 @@ def get_agents_schema() -> dict:
     add_dialog.title("新建 Agent")
     add_dialog.body(
         a.Form()
-            .api("/api/agents/create")
-            .body([
-                a.InputText()
-                    .name("name")
-                    .label("Agent 名称")
-                    .required(True),
-                a.Textarea()
-                    .name("description")
-                    .label("描述"),
-                a.Switch()
-                    .name("enabled")
-                    .label("启用")
-                    .value(True),
-            ])
-            .set("buttons", [
-                {"type": "submit", "label": "创建", "primary": True}
-            ])
+        .api("/api/agents/create")
+        .body(
+            [
+                a.InputText().name("name").label("Agent 名称").required(True),
+                a.Textarea().name("description").label("描述"),
+                a.Switch().name("enabled").label("启用").value(True),
+            ]
+        )
+        .set("buttons", [{"type": "submit", "label": "创建", "primary": True}])
     )
 
     add_btn = a.Button()
@@ -46,20 +38,15 @@ def get_agents_schema() -> dict:
     edit_dialog.title("编辑 Agent")
     edit_dialog.body(
         a.Form()
-            .api("put:/api/agents/save/${id}")
-            .initApi("get:/api/agents/get/${id}")
-            .body([
-                a.InputText()
-                    .name("name")
-                    .label("Agent 名称")
-                    .required(True),
-                a.Textarea()
-                    .name("description")
-                    .label("描述"),
-                a.Switch()
-                    .name("enabled")
-                    .label("启用"),
-            ])
+        .api("put:/api/agents/save/${id}")
+        .initApi("get:/api/agents/get/${id}")
+        .body(
+            [
+                a.InputText().name("name").label("Agent 名称").required(True),
+                a.Textarea().name("description").label("描述"),
+                a.Switch().name("enabled").label("启用"),
+            ]
+        )
     )
 
     # Actions
@@ -81,41 +68,51 @@ def get_agents_schema() -> dict:
 
     # CRUD Cards 卡片布局
     crud = a.CRUD()
-    crud.api({
-        "method": "get",
-        "url": "/api/agents/list",
-        "responseData": {"items": "${items}", "total": "$total"},
-    })
+    crud.api(
+        {
+            "method": "get",
+            "url": "/api/agents/list",
+            "responseData": {"items": "${items}", "total": "$total"},
+        }
+    )
     crud.perPage(12)
     crud.headerToolbar(["reload", add_btn])
     crud.mode("cards")
     crud.card(
-        a.Card()\
-            .title("${name}")\
-            .subTitle("${enabled ? '启用' : '禁用'}")\
-            .body([
-                a.Tpl()\
-                    .tpl("<div style=\"color: #999; font-size: 13px; margin: 8px 0;\">${description || '无描述'}</div>"),
-                a.Flex()\
-                    .className("flex justify-between items-center mt-4")\
-                    .items([
-                        a.Badge()\
-                            .label("${enabled ? '启用' : '禁用'}")\
-                            .level("${enabled ? 'success' : 'default'}"),
-                        a.Group()\
-                            .buttons([edit_btn, toggle_btn, delete_btn])
-                    ])
-            ])
+        a.Card()
+        .title("${name}")
+        .subTitle("${enabled ? '启用' : '禁用'}")
+        .body(
+            [
+                a.Tpl().tpl(
+                    "<div style=\"color: #999; font-size: 13px; margin: 8px 0;\">${description || '无描述'}</div>"
+                ),
+                a.Flex()
+                .className("flex justify-between items-center mt-4")
+                .items(
+                    [
+                        a.Badge().label("${enabled ? '启用' : '禁用'}").level("${enabled ? 'success' : 'default'}"),
+                        a.Group().buttons([edit_btn, toggle_btn, delete_btn]),
+                    ]
+                ),
+            ]
+        )
     )
 
-    crud.bulkActions([
-        {"label": "批量删除", "type": "button", "level": "danger", "api": "/api/agents/bulk-delete", "confirmText": "确定要删除选中吗？"}
-    ])
+    crud.bulkActions(
+        [
+            {
+                "label": "批量删除",
+                "type": "button",
+                "level": "danger",
+                "api": "/api/agents/bulk-delete",
+                "confirmText": "确定要删除选中吗？",
+            }
+        ]
+    )
 
     # 组合成完整页面
-    page = a.Page()\
-        .title("Agent 管理")\
-        .body([crud])
+    page = a.Page().title("Agent 管理").body([crud])
 
     # 转换为 dict
     return page.to_dict()

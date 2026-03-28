@@ -2,18 +2,16 @@
 MCP 客户端
 连接外部 MCP 服务器，将外部工具导入到 Agnes 系统中
 """
-import asyncio
-import logging
+
 import json
-import subprocess
-from typing import Any, Dict, List, Optional, Union
+import logging
 from contextlib import AsyncExitStack
+from typing import Any
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
-from pydantic import BaseModel
 
-from agnes.mcp.registry import mcp_registry, MCPToolInfo, MCPServerInfo
+from agnes.mcp.registry import MCPServerInfo, MCPToolInfo, mcp_registry
 
 logger = logging.getLogger(__name__)
 
@@ -27,9 +25,9 @@ class MCPServerConnection:
         name: str,
         transport_type: str = "stdio",
         connection_string: str = "",
-        command: Optional[str] = None,
-        args: Optional[List[str]] = None,
-        env: Optional[Dict[str, str]] = None,
+        command: str | None = None,
+        args: list[str] | None = None,
+        env: dict[str, str] | None = None,
     ):
         self.server_id = server_id
         self.name = name
@@ -39,18 +37,18 @@ class MCPServerConnection:
         self.args = args or []
         self.env = env
 
-        self._session: Optional[ClientSession] = None
-        self._exit_stack: Optional[AsyncExitStack] = None
+        self._session: ClientSession | None = None
+        self._exit_stack: AsyncExitStack | None = None
         self._connected = False
-        self._tools: List[MCPToolInfo] = []
-        self._last_error: Optional[str] = None
+        self._tools: list[MCPToolInfo] = []
+        self._last_error: str | None = None
 
     @property
     def connected(self) -> bool:
         return self._connected
 
     @property
-    def tools(self) -> List[MCPToolInfo]:
+    def tools(self) -> list[MCPToolInfo]:
         return self._tools
 
     async def connect(self) -> bool:
@@ -73,13 +71,9 @@ class MCPServerConnection:
                 )
 
                 # 创建连接
-                read_stream, write_stream = await self._exit_stack.enter_async_context(
-                    stdio_client(server_params)
-                )
+                read_stream, write_stream = await self._exit_stack.enter_async_context(stdio_client(server_params))
 
-                self._session = await self._exit_stack.enter_async_context(
-                    ClientSession(read_stream, write_stream)
-                )
+                self._session = await self._exit_stack.enter_async_context(ClientSession(read_stream, write_stream))
 
                 await self._session.initialize()
 
@@ -140,7 +134,7 @@ class MCPServerConnection:
         mcp_registry.update_connection_status(self.server_id, False, None)
         logger.info(f"Disconnected from MCP server '{self.server_id}'")
 
-    async def call_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Any:
+    async def call_tool(self, tool_name: str, arguments: dict[str, Any]) -> Any:
         """调用工具"""
         if not self._connected or not self._session:
             raise RuntimeError(f"Not connected to server '{self.server_id}'")
@@ -160,7 +154,7 @@ class MCPServerConnection:
         return result.content
 
     @property
-    def last_error(self) -> Optional[str]:
+    def last_error(self) -> str | None:
         return self._last_error
 
 
@@ -168,7 +162,7 @@ class MCPClient:
     """MCP 客户端，管理多个 MCP 服务器连接"""
 
     def __init__(self):
-        self._connections: Dict[str, MCPServerConnection] = {}
+        self._connections: dict[str, MCPServerConnection] = {}
 
     def add_connection(self, connection: MCPServerConnection) -> None:
         """添加一个连接"""
@@ -182,11 +176,11 @@ class MCPClient:
         mcp_registry.unregister_server(server_id)
         return True
 
-    def get_connection(self, server_id: str) -> Optional[MCPServerConnection]:
+    def get_connection(self, server_id: str) -> MCPServerConnection | None:
         """获取连接"""
         return self._connections.get(server_id)
 
-    async def connect_all(self) -> Dict[str, bool]:
+    async def connect_all(self) -> dict[str, bool]:
         """连接所有服务器"""
         results = {}
         for server_id, connection in self._connections.items():
@@ -199,11 +193,11 @@ class MCPClient:
             if connection.connected:
                 await connection.disconnect()
 
-    def list_all_connections(self) -> List[MCPServerConnection]:
+    def list_all_connections(self) -> list[MCPServerConnection]:
         """列出所有连接"""
         return list(self._connections.values())
 
-    async def call_global_tool(self, tool_full_name: str, arguments: Dict[str, Any]) -> Any:
+    async def call_global_tool(self, tool_full_name: str, arguments: dict[str, Any]) -> Any:
         """调用工具，格式为 'server_id/tool_name'"""
         if "/" not in tool_full_name:
             raise ValueError(f"Tool name must be in format 'server_id/tool_name', got: {tool_full_name}")
@@ -211,7 +205,7 @@ class MCPClient:
         server_id, tool_name = tool_full_name.split("/", 1)
         return await self.call_tool(server_id, tool_name, arguments)
 
-    async def call_tool(self, server_id: str, tool_name: str, arguments: Dict[str, Any]) -> Any:
+    async def call_tool(self, server_id: str, tool_name: str, arguments: dict[str, Any]) -> Any:
         """调用远程工具"""
         connection = self.get_connection(server_id)
         if not connection:
@@ -221,7 +215,9 @@ class MCPClient:
         return await connection.call_tool(tool_name, arguments)
 
 
-def create_agnes_remote_connection(server_id: str = "agnes-local", command: str = "python", args: Optional[List[str]] = None) -> MCPServerConnection:
+def create_agnes_remote_connection(
+    server_id: str = "agnes-local", command: str = "python", args: list[str] | None = None
+) -> MCPServerConnection:
     """创建 Agnes 本地 MCP 连接（连接到自身的 STDIO 服务）"""
     if args is None:
         # 默认运行 Agnes MCP 服务器

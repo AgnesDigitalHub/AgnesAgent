@@ -6,9 +6,11 @@
   uv run python examples/mcp_game_automation.py        - 启动 MCP STDIO 服务
   uv run python examples/mcp_game_automation.py --help - 显示帮助信息
 """
+
 import asyncio
 import logging
 import sys
+
 from agnes.mcp.server import create_default_server
 
 logging.basicConfig(level=logging.INFO)
@@ -16,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 async def main():
-    if len(sys.argv) > 1 and sys.argv[1] == '--help':
+    if len(sys.argv) > 1 and sys.argv[1] == "--help":
         print(__doc__)
         print("\n可用工具:")
         print("  screen_capture   - 截取屏幕截图")

@@ -74,10 +74,16 @@ class AgnesAgent:
 
         # 所有兼容 OpenAI 接口格式的供应商都走 OpenAIProvider
         openai_compatible_providers = {
-            "openai", "openai-compat", "deepseek", "gemini", 
-            "anthropic", "openvino-server", "local-api", "generic"
+            "openai",
+            "openai-compat",
+            "deepseek",
+            "gemini",
+            "anthropic",
+            "openvino-server",
+            "local-api",
+            "generic",
         }
-        
+
         if provider_type == "ollama":
             self.llm_provider = OllamaProvider(
                 base_url=config.base_url or "http://localhost:11434",
@@ -96,7 +102,7 @@ class AgnesAgent:
                 "ollama": "http://localhost:11434/v1",
                 "openvino-server": "http://localhost:8000/v1",
             }.get(provider_type, "http://localhost:8000/v1")
-            
+
             self.llm_provider = OpenAIProvider(
                 api_key=config.api_key or default_api_key,
                 base_url=config.base_url or default_base_url,
@@ -517,7 +523,9 @@ async def main():
         help="Skip provider selection menu (use config directly)",
     )
     parser.add_argument("--web", action="store_true", help="Start old web server (deprecated)")
-    parser.add_argument("--no-server", action="store_true", help="Do not start Agnes Server (default is to start server)")
+    parser.add_argument(
+        "--no-server", action="store_true", help="Do not start Agnes Server (default is to start server)"
+    )
     parser.add_argument("--no-browser", action="store_true", help="Don't open browser automatically")
     parser.add_argument("--host", default="127.0.0.1", help="Server host")
     parser.add_argument("--port", type=int, default=8000, help="Server port")
@@ -553,6 +561,7 @@ async def main():
         elif args.web:
             try:
                 from agnes.web_server import start_web_server
+
                 await start_web_server(agent, args.host, args.port)
             except ImportError:
                 print("Web dependencies not installed!")
@@ -561,20 +570,22 @@ async def main():
         elif args.web2:
             # 启动 Web2 Amis SPA 控制台
             try:
-                from web2.main import create_app
-                import uvicorn
                 import threading
                 import webbrowser
+
+                import uvicorn
                 from fastapi import FastAPI, HTTPException
                 from fastapi.middleware.cors import CORSMiddleware
                 from fastapi.responses import StreamingResponse
+
+                from web2.main import create_app
 
                 # 创建 web2 应用
                 web2_app = create_app(reload=args.reload)
 
                 # 创建干净的主应用，不使用 agnes.server.create_app 避免冲突路由
                 main_app = FastAPI(title="AgnesAgent Web2", version="2.0.0")
-                
+
                 # CORS 配置
                 main_app.add_middleware(
                     CORSMiddleware,
@@ -583,10 +594,10 @@ async def main():
                     allow_methods=["*"],
                     allow_headers=["*"],
                 )
-                
+
                 # 添加favicon路由
                 from fastapi.responses import FileResponse
-                
+
                 @main_app.get("/favicon.ico")
                 @main_app.get("/icon.png")
                 async def favicon():
@@ -600,13 +611,13 @@ async def main():
                     if os.path.exists(icon_path):
                         return FileResponse(icon_path, media_type="image/png")
                     raise HTTPException(status_code=404, detail="Icon not found")
-                
+
                 # 只保留必要的 OpenAI 兼容 API（从 agnes.server 复制过来核心功能）
+                from agnes.server.api import create_openai_response, stream_openai_response
                 from agnes.server.models import (
                     ChatCompletionRequest,
                 )
-                from agnes.server.api import stream_openai_response, create_openai_response
-                
+
                 # 添加 OpenAI 兼容 API
                 @main_app.post("/v1/chat/completions")
                 async def chat_completions(request: ChatCompletionRequest):
@@ -621,16 +632,19 @@ async def main():
                         )
                     else:
                         return create_openai_response(agent, request)
-                
+
                 # 直接把 web2_app 的路由挂载到根
                 # 用户要求全部改成根路径，不要 /web2 前缀
                 from fastapi import APIRouter
+
                 for route in web2_app.routes:
                     main_app.routes.append(route)
 
                 if not args.no_browser:
+
                     def open_browser_thread():
                         import time
+
                         time.sleep(1.5)
                         webbrowser.open(f"http://{args.host}:{args.port}/")
 

@@ -9,12 +9,11 @@ from contextlib import asynccontextmanager
 from typing import Any
 from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
 
 from agnes import ChatHistory, get_logger
 from agnes.config import SETTINGS_SECTIONS, ConfigManager, LLMProfile, SettingsStorage
-from agnes.core.llm_provider import LLMResponse
 
 from .models import (
     ChatCompletionChoice,
@@ -25,27 +24,24 @@ from .models import (
     ChatCompletionUsage,
     ChatMessage,
     CreateProfileRequest,
-    Model,
-    ModelListResponse,
     ProfileListResponse,
     ProfileResponse,
     StatusResponse,
     SuccessResponse,
     UpdateProfileRequest,
 )
-
-from .schemas.dashboard import get_dashboard_schema
-from .schemas.chat import get_chat_schema
 from .schemas.agents import get_agents_schema
-from .schemas.models import get_models_schema
-from .schemas.workflows import get_workflows_schema
-from .schemas.tools import get_tools_schema
+from .schemas.chat import get_chat_schema
+from .schemas.dashboard import get_dashboard_schema
 from .schemas.knowledge import get_knowledge_schema
 from .schemas.logs import get_logs_schema
+from .schemas.models import get_models_schema
 from .schemas.prompts import get_prompts_schema
 from .schemas.publish import get_publish_schema
-from .schemas.users import get_users_schema
 from .schemas.settings import get_settings_schema
+from .schemas.tools import get_tools_schema
+from .schemas.users import get_users_schema
+from .schemas.workflows import get_workflows_schema
 
 logger = get_logger("agnes.server.api")
 
@@ -215,83 +211,40 @@ class AgnesServer:
                 "logo": "/favicon.ico",
                 "footer": "",
                 "pages": [
-                    {
-                        "path": "/",
-                        "redirect": "/dashboard"
-                    },
+                    {"path": "/", "redirect": "/dashboard"},
                     {
                         "path": "/dashboard",
                         "label": "Dashboard",
                         "icon": "fa fa-tachometer",
-                        "schema": get_dashboard_schema()
+                        "schema": get_dashboard_schema(),
                     },
-                    {
-                        "path": "/models",
-                        "label": "模型管理",
-                        "icon": "fa fa-brain",
-                        "schema": get_models_schema()
-                    },
-                    {
-                        "path": "/chat",
-                        "label": "聊天",
-                        "icon": "fa fa-comments",
-                        "schema": get_chat_schema()
-                    },
-                    {
-                        "path": "/agents",
-                        "label": "Agent 管理",
-                        "icon": "fa fa-robot",
-                        "schema": get_agents_schema()
-                    },
+                    {"path": "/models", "label": "模型管理", "icon": "fa fa-brain", "schema": get_models_schema()},
+                    {"path": "/chat", "label": "聊天", "icon": "fa fa-comments", "schema": get_chat_schema()},
+                    {"path": "/agents", "label": "Agent 管理", "icon": "fa fa-robot", "schema": get_agents_schema()},
                     {
                         "path": "/prompts",
                         "label": "Prompt IDE",
                         "icon": "fa fa-comment",
-                        "schema": get_prompts_schema()
+                        "schema": get_prompts_schema(),
                     },
-                    {
-                        "path": "/tools",
-                        "label": "工具/插件",
-                        "icon": "fa fa-wrench",
-                        "schema": get_tools_schema()
-                    },
+                    {"path": "/tools", "label": "工具/插件", "icon": "fa fa-wrench", "schema": get_tools_schema()},
                     {
                         "path": "/knowledge",
                         "label": "知识库/RAG",
                         "icon": "fa fa-book",
-                        "schema": get_knowledge_schema()
+                        "schema": get_knowledge_schema(),
                     },
                     {
                         "path": "/workflows",
                         "label": "Workflow 编排",
                         "icon": "fa fa-link",
-                        "schema": get_workflows_schema()
+                        "schema": get_workflows_schema(),
                     },
-                    {
-                        "path": "/logs",
-                        "label": "运行日志",
-                        "icon": "fa fa-history",
-                        "schema": get_logs_schema()
-                    },
-                    {
-                        "path": "/publish",
-                        "label": "API/集成",
-                        "icon": "fa fa-plug",
-                        "schema": get_publish_schema()
-                    },
-                    {
-                        "path": "/users",
-                        "label": "用户权限",
-                        "icon": "fa fa-users",
-                        "schema": get_users_schema()
-                    },
-                    {
-                        "path": "/settings",
-                        "label": "系统设置",
-                        "icon": "fa fa-cog",
-                        "schema": get_settings_schema()
-                    }
-                ]
+                    {"path": "/logs", "label": "运行日志", "icon": "fa fa-history", "schema": get_logs_schema()},
+                    {"path": "/publish", "label": "API/集成", "icon": "fa fa-plug", "schema": get_publish_schema()},
+                    {"path": "/users", "label": "用户权限", "icon": "fa fa-users", "schema": get_users_schema()},
+                    {"path": "/settings", "label": "系统设置", "icon": "fa fa-cog", "schema": get_settings_schema()},
+                ],
             }
             return JSONResponse(content=app_config)
 
@@ -306,7 +259,7 @@ class AgnesServer:
             template_path = os.path.abspath(template_path)
             logger.info(f"Loading amis Web2 console from: {template_path}")
             if os.path.exists(template_path):
-                with open(template_path, "r", encoding="utf-8") as f:
+                with open(template_path, encoding="utf-8") as f:
                     return HTMLResponse(content=f.read())
             return HTMLResponse(
                 content="""
@@ -568,7 +521,6 @@ def create_app(agent):
 
 async def stream_openai_response(agent, request: ChatCompletionRequest):
     """流式生成 OpenAI 兼容的响应"""
-    import json
 
     created = int(time.time())
     msg_id = f"chatcmpl-{uuid4()}"
@@ -609,7 +561,6 @@ async def stream_openai_response(agent, request: ChatCompletionRequest):
 
 def create_openai_response(agent, request: ChatCompletionRequest):
     """生成非流式 OpenAI 兼容的响应"""
-    import json
 
     created = int(time.time())
     msg_id = f"chatcmpl-{uuid4()}"
@@ -649,5 +600,3 @@ def create_openai_response(agent, request: ChatCompletionRequest):
             total_tokens=0,
         ),
     )
-
-

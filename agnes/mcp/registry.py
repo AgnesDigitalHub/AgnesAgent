@@ -2,8 +2,10 @@
 MCP 服务器注册表
 管理所有已连接的 MCP 服务器和它们暴露的工具
 """
+
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
@@ -11,31 +13,33 @@ logger = logging.getLogger(__name__)
 
 class MCPToolInfo(BaseModel):
     """MCP 工具信息"""
+
     name: str
     description: str
-    input_schema: Dict[str, Any]
-    output_schema: Optional[Dict[str, Any]] = None
+    input_schema: dict[str, Any]
+    output_schema: dict[str, Any] | None = None
     server_id: str
 
 
 class MCPServerInfo(BaseModel):
     """MCP 服务器信息"""
+
     id: str
     name: str
     version: str
     transport_type: str  # "stdio" / "http" / "websocket"
     connection_string: str
-    tools: List[MCPToolInfo] = Field(default_factory=list)
+    tools: list[MCPToolInfo] = Field(default_factory=list)
     connected: bool = False
-    last_error: Optional[str] = None
+    last_error: str | None = None
 
 
 class MCPRegistry:
     """MCP 服务器注册表"""
 
     def __init__(self):
-        self._servers: Dict[str, MCPServerInfo] = {}
-        self._tools: Dict[str, Dict[str, MCPToolInfo]] = {}  # server_id -> tool_name -> info
+        self._servers: dict[str, MCPServerInfo] = {}
+        self._tools: dict[str, dict[str, MCPToolInfo]] = {}  # server_id -> tool_name -> info
 
     def register_server(self, server_info: MCPServerInfo) -> None:
         """注册一个 MCP 服务器"""
@@ -55,34 +59,34 @@ class MCPRegistry:
         logger.info(f"Unregistered MCP server: {server_id}")
         return True
 
-    def get_server(self, server_id: str) -> Optional[MCPServerInfo]:
+    def get_server(self, server_id: str) -> MCPServerInfo | None:
         """获取服务器信息"""
         return self._servers.get(server_id)
 
-    def list_servers(self) -> List[MCPServerInfo]:
+    def list_servers(self) -> list[MCPServerInfo]:
         """列出所有服务器"""
         return list(self._servers.values())
 
-    def get_tool(self, server_id: str, tool_name: str) -> Optional[MCPToolInfo]:
+    def get_tool(self, server_id: str, tool_name: str) -> MCPToolInfo | None:
         """获取特定工具信息"""
         if server_id not in self._tools:
             return None
         return self._tools[server_id].get(tool_name)
 
-    def list_all_tools(self) -> List[MCPToolInfo]:
+    def list_all_tools(self) -> list[MCPToolInfo]:
         """列出所有服务器上的所有工具"""
         all_tools = []
         for server_id, tools in self._tools.items():
             all_tools.extend(tools.values())
         return all_tools
 
-    def list_server_tools(self, server_id: str) -> List[MCPToolInfo]:
+    def list_server_tools(self, server_id: str) -> list[MCPToolInfo]:
         """列出特定服务器上的所有工具"""
         if server_id not in self._tools:
             return []
         return list(self._tools[server_id].values())
 
-    def update_connection_status(self, server_id: str, connected: bool, error: Optional[str] = None) -> bool:
+    def update_connection_status(self, server_id: str, connected: bool, error: str | None = None) -> bool:
         """更新连接状态"""
         if server_id not in self._servers:
             return False

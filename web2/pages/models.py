@@ -1,12 +1,11 @@
 """
-Models Management Page - AstrBot style with python-amis schema
+Models Management Page - NiceGUI version (legacy)
 """
 
 from typing import Any
 
 import httpx
 from nicegui import ui
-from web2.schemas import get_models_schema
 
 PROVIDER_TEMPLATES = {
     "openai": {

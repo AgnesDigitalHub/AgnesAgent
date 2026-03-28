@@ -8,6 +8,8 @@ import threading
 import webbrowser
 from contextlib import asynccontextmanager
 
+# Build complete amis app configuration with all schemas embedded
+from amis.components import App
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 
@@ -19,121 +21,50 @@ from agnes.core.llm_provider import LLMResponse
 
 # Import python-amis schemas
 from web2.schemas import (
-    get_dashboard_schema,
-    get_models_schema,
-    get_chat_schema,
     get_agents_schema,
-    get_prompts_schema,
+    get_chat_schema,
+    get_dashboard_schema,
     get_knowledge_schema,
-    get_tools_schema,
-    get_workflows_schema,
     get_logs_schema,
+    get_models_schema,
+    get_prompts_schema,
     get_publish_schema,
-    get_users_schema,
     get_settings_schema,
+    get_tools_schema,
+    get_users_schema,
+    get_workflows_schema,
 )
 
-# Build complete amis app configuration with all schemas embedded
-from amis.components import App
 
 def build_amis_app():
     """Build complete amis app configuration with all schemas embedded"""
-    
+
     pages = [
-        {
-            "path": "/",
-            "label": "概览",
-            "icon": "fa fa-tachometer",
-            "redirect": "/dashboard"
-        },
-        {
-            "path": "/dashboard",
-            "label": "Dashboard",
-            "icon": "fa fa-tachometer",
-            "schema": get_dashboard_schema()
-        },
-        {
-            "path": "/models",
-            "label": "模型管理",
-            "icon": "fa fa-brain",
-            "schema": get_models_schema()
-        },
-        {
-            "path": "/chat",
-            "label": "聊天",
-            "icon": "fa fa-comments",
-            "schema": get_chat_schema()
-        },
-        {
-            "path": "/agents",
-            "label": "Agent 管理",
-            "icon": "fa fa-robot",
-            "schema": get_agents_schema()
-        },
-        {
-            "path": "/prompts",
-            "label": "Prompt IDE",
-            "icon": "fa fa-comment",
-            "schema": get_prompts_schema()
-        },
-        {
-            "path": "/tools",
-            "label": "工具/插件",
-            "icon": "fa fa-wrench",
-            "schema": get_tools_schema()
-        },
-        {
-            "path": "/knowledge",
-            "label": "知识库/RAG",
-            "icon": "fa fa-book",
-            "schema": get_knowledge_schema()
-        },
-        {
-            "path": "/workflows",
-            "label": "Workflow 编排",
-            "icon": "fa fa-link",
-            "schema": get_workflows_schema()
-        },
-        {
-            "path": "/logs",
-            "label": "运行日志",
-            "icon": "fa fa-history",
-            "schema": get_logs_schema()
-        },
-        {
-            "path": "/publish",
-            "label": "API/集成",
-            "icon": "fa fa-plug",
-            "schema": get_publish_schema()
-        },
-        {
-            "path": "/users",
-            "label": "用户权限",
-            "icon": "fa fa-users",
-            "schema": get_users_schema()
-        },
-        {
-            "path": "/settings",
-            "label": "系统设置",
-            "icon": "fa fa-cog",
-            "schema": get_settings_schema()
-        }
+        {"path": "/", "label": "概览", "icon": "fa fa-tachometer", "redirect": "/dashboard"},
+        {"path": "/dashboard", "label": "Dashboard", "icon": "fa fa-tachometer", "schema": get_dashboard_schema()},
+        {"path": "/models", "label": "模型管理", "icon": "fa fa-brain", "schema": get_models_schema()},
+        {"path": "/chat", "label": "聊天", "icon": "fa fa-comments", "schema": get_chat_schema()},
+        {"path": "/agents", "label": "Agent 管理", "icon": "fa fa-robot", "schema": get_agents_schema()},
+        {"path": "/prompts", "label": "Prompt IDE", "icon": "fa fa-comment", "schema": get_prompts_schema()},
+        {"path": "/tools", "label": "工具/插件", "icon": "fa fa-wrench", "schema": get_tools_schema()},
+        {"path": "/knowledge", "label": "知识库/RAG", "icon": "fa fa-book", "schema": get_knowledge_schema()},
+        {"path": "/workflows", "label": "Workflow 编排", "icon": "fa fa-link", "schema": get_workflows_schema()},
+        {"path": "/logs", "label": "运行日志", "icon": "fa fa-history", "schema": get_logs_schema()},
+        {"path": "/publish", "label": "API/集成", "icon": "fa fa-plug", "schema": get_publish_schema()},
+        {"path": "/users", "label": "用户权限", "icon": "fa fa-users", "schema": get_users_schema()},
+        {"path": "/settings", "label": "系统设置", "icon": "fa fa-cog", "schema": get_settings_schema()},
     ]
-    
+
     app = App(
         brandName="Agnes Agent",
         logo="/favicon.ico",
-        header={
-            "type": "tpl",
-            "tpl": '<span class="text-white">Web 控制台</span>',
-            "inline": False
-        },
+        header={"type": "tpl", "tpl": '<span class="text-white">Web 控制台</span>', "inline": False},
         footer="",
         asideBefore="",
         asideAfter="",
-        pages=pages
+        pages=pages,
     )
-    
+
     return app.render()
 
 
@@ -316,7 +247,7 @@ class AgnesWebServer:
             finally:
                 try:
                     await websocket.close()
-                except:
+                except Exception:
                     pass
 
         @self.app.post("/api/history/clear")
@@ -345,10 +276,7 @@ class AgnesWebServer:
                 return JSONResponse(content=app_config)
             except Exception as e:
                 self.logger.error(f"Failed to build amis app config: {e}")
-                return JSONResponse(
-                    content={"error": f"Failed to build amis app config: {str(e)}"},
-                    status_code=500
-                )
+                return JSONResponse(content={"error": f"Failed to build amis app config: {str(e)}"}, status_code=500)
 
 
 async def start_web_server(agent, host: str = "127.0.0.1", port: int = 8000, open_browser: bool = True):

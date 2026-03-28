@@ -8,7 +8,7 @@ from amis.amis import amis
 def get_chat_schema():
     """获取聊天页面 amis Schema"""
     a = amis()
-    
+
     custom = a.Custom()
     custom.onMount("""
 (function() {

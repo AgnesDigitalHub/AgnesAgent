@@ -132,12 +132,12 @@ uv run python examples/mcp_game_automation.py
 | 提供商 | 支持情况 | 备注 |
 |---------|---------|---------|
 | OpenAI | ✅ | 原生支持 |
+| 任意 OpenAI 兼容服务 | ✅ | OpenAI 兼容
 | Ollama | ✅ | 本地部署 |
 | DeepSeek | ✅ | OpenAI 兼容 |
 | Google Gemini | ✅ | OpenAI 兼容 |
 | Anthropic | ✅ | OpenAI 兼容 |
 | OpenVINO | ✅ | 本地量化模型 |
-| 任意 OpenAI 兼容服务 | ✅ | generic 类型 |
 
 ## 🛠️ 开发
 
@@ -161,9 +161,9 @@ pre-commit install
 
 本项目的诞生离不开以下开源项目的帮助：
 
-- [ATRI](https://github.com/moeru-ai/airi/)
-- [Open-LLM-VTuber](https://github.com/Open-LLM-VTuber/Open-LLM-VTuber)
-- [AstrBot](https://github.com/AstrBotDevs/AstrBot) - README 风格参考
+- [ATRI](https://github.com/moeru-ai/airi/) - 自动化参考
+- [Open-LLM-VTuber](https://github.com/Open-LLM-VTuber/Open-LLM-VTuber) - 本地化参考
+- [AstrBot](https://github.com/AstrBotDevs/AstrBot) - web控制台参考
 
 ## ⭐ Star History
 
