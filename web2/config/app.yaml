@@ -13,6 +13,7 @@ config:
   theme: "cxd"
   locale: "zh-CN"
   api_prefix: "/api"
+  log_level: "info"
 
 # 左侧导航菜单配置
 menus:
@@ -26,15 +27,15 @@ menus:
     icon: "smart_toy"
     url: "/models"
 
+  - name: "personas"
+    label: "人格管理"
+    icon: "face"
+    url: "/personas"
+
   - name: "chat"
     label: "对话"
     icon: "chat"
     url: "/chat"
-
-  - name: "agents"
-    label: "Agent 管理"
-    icon: "psychology"
-    url: "/agents"
 
   - name: "prompts"
     label: "Prompt IDE"
@@ -87,12 +88,12 @@ pages:
     title: "模型管理"
     schema: null
 
-  chat:
-    title: "对话"
+  personas:
+    title: "人格管理"
     schema: null
 
-  agents:
-    label: "Agent 管理"
+  chat:
+    title: "对话"
     schema: null
 
   prompts:

@@ -89,20 +89,21 @@ def get_dashboard_schema() -> dict:
 
     # 使用流量图表
     usage_chart = Chart()\
-        .type("line")\
+        .chartType("line")\
         .title("Token 使用趋势")\
         .api("/api/dashboard/tokens")
 
     # 组合成完整页面
+    # 使用 flex 布局而不是 grid，避免类型错误
     page = Page()\
         .title("概览")\
         .body([
             stats_cards,
-            Grid().columns([
-                GridColumn().body(usage_chart).md(8),
-                GridColumn().body(recent_activities).md(4),
-            ]),
+            usage_chart,
+            recent_activities
         ])
 
     # 转换为 dict
-    return page.to_dict()
+    result = page.to_dict()
+    
+    return result

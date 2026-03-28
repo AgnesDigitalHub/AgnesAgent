@@ -6,7 +6,6 @@ from .core import (
     LLMProvider,
     LLMResponse,
     PromptTemplate,
-    PromptTemplates,
     Streamer,
 )
 from .provider_selector import ProviderSelector
@@ -29,7 +28,6 @@ __all__ = [
     "ChatHistory",
     "ChatMessage",
     "PromptTemplate",
-    "PromptTemplates",
     "OllamaProvider",
     "OpenAIProvider",
     "OpenVINOProvider",

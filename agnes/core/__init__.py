@@ -1,7 +1,7 @@
 from .asr_provider import ASRProvider, ASRResponse
 from .chat_history import ChatHistory, ChatMessage
 from .llm_provider import LLMProvider, LLMResponse
-from .prompt_templates import PromptTemplate, PromptTemplates
+from .prompt_templates import PromptTemplate
 from .streamer import Streamer
 
 __all__ = [
@@ -13,5 +13,4 @@ __all__ = [
     "ChatHistory",
     "ChatMessage",
     "PromptTemplate",
-    "PromptTemplates",
 ]

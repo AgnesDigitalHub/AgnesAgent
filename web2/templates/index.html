@@ -5,7 +5,7 @@
     <title>Agnes Agent 控制台</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
-    <!-- 最终决战：全力度强力CSS补丁，强制把侧边栏"抠"出来 -->
+    <!-- 强力CSS补丁，强制把侧边栏"抠"出来 -->
     <style>
         /* 1. 强力布局补丁：确保容器不坍塌 */
         html, body, #root, .amis-Layout {
@@ -53,7 +53,7 @@
         }
     </style>
 
-    <!-- 2. 引用标准 SDK (使用稳定版本 6.10.0) -->
+    <!-- 引用标准 SDK (使用稳定版本 6.10.0) -->
     <link rel="stylesheet" href="https://unpkg.com/amis@6.10.0/sdk/cxd.css" />
     <link rel="stylesheet" href="https://unpkg.com/amis@6.10.0/sdk/helper.css" />
     <link rel="stylesheet" href="https://unpkg.com/amis@6.10.0/sdk/iconfont.css" />
@@ -82,27 +82,13 @@
                     }
                 });
 
-                console.log("🛠️ 手动构造的配置:", finalAppConfig);
-                console.log("📋 pages 数组长度:", finalAppConfig.pages.length);
-                console.log("📋 pages 内容:", finalAppConfig.pages);
-
                 // 检查 pages 是否真的有数据
                 if (finalAppConfig.pages.length === 0) {
                     alert("错误：pages 数组是空的！后端配置可能有问题。");
                     return;
                 }
 
-                // 打印每个 page 的 label
-                finalAppConfig.pages.forEach((p, i) => {
-                    console.log(`  page[${i}]: label="${p.label}", url="${p.url}", icon="${p.icon}"`);
-                });
-
-                // 调试：输出整个配置结构方便排查
-                console.log("🚀 最终配置:", JSON.stringify(finalAppConfig, null, 2));
-
                 const amis = amisRequire('amis/embed');
-                console.log("📦 AMIS SDK 加载成功");
-                console.log("🏗️ 使用原生HTML创建侧边栏，确保100%生成");
 
                 // AMIS 自动生成失败，改用原生HTML直接创建侧边栏
                 // 保证100%能生成DOM节点
@@ -133,9 +119,16 @@
                 // 添加每个菜单项
                 finalAppConfig.pages.forEach((p, i) => {
                     const icon = p.icon || '';
+                    // 跳过首页，因为它在初始加载时已经渲染了
+                    if (p.url === '/') {
+                        return;
+                    }
+                    // 从 url 提取 pageName 用于 API 请求
+                    // url 格式是 "/personas" => pageName = "personas"
+                    const pageName = p.url.replace(/^\//, '');
                     navHtml += `
                         <div class="amis-AsideNav-item" style="margin: 2px 0;">
-                            <a href="${p.url}" style="
+                            <a href="javascript:void(0);" data-page-name="${pageName}" data-page-url="${p.url}" style="
                                 display: block;
                                 padding: 12px 20px;
                                 color: rgba(255,255,255,0.85);
@@ -167,11 +160,10 @@
                 
                 // 直接写入原生 HTML
                 root.innerHTML = navHtml;
-                console.log("✅ 原生侧边栏已直接创建到DOM");
                 
                 // 在主内容区域使用 AMIS 渲染首页
                 const homePage = finalAppConfig.pages.find(p => p.url === '/');
-                const contentTarget = document.getElementById('amis-main-content');
+                contentTarget = document.getElementById('amis-main-content');
                 
                 if (homePage && homePage.schema) {
                     amis.embed('#amis-main-content', homePage.schema, {}, {
@@ -182,17 +174,93 @@
                     contentTarget.innerHTML = `<h1>欢迎使用 ${finalAppConfig.brandName}</h1><p>请点击左侧导航选择功能</p>`;
                 }
 
-                // 检查节点（原生HTML创建一定会成功）
-                setTimeout(() => {
-                    const aside = document.querySelector('.amis-Layout-aside');
-                    if (!aside) {
-                        console.error("❌ 严重错误：侧边栏节点依然未生成！原生HTML创建失败。");
-                    } else {
-                        console.log("✅ 侧边栏节点已生成！（原生HTML方式）");
-                        console.log("   侧边栏宽度:", aside.offsetWidth);
-                        console.log("   侧边栏高度:", aside.offsetHeight);
+                // ============ 核心修复：拦截菜单点击，异步加载页面 ============
+                let currentPageName = null;
+
+                // 高亮当前选中的菜单项
+                function setActiveMenuItem(pageName) {
+                    document.querySelectorAll('.amis-AsideNav-item a').forEach(link => {
+                        link.parentElement.style.backgroundColor = '';
+                        if (link.getAttribute('data-page-name') === pageName) {
+                            link.parentElement.style.backgroundColor = '#242e3e';
+                            link.style.color = '#ffffff';
+                        } else {
+                            link.style.color = 'rgba(255,255,255,0.85)';
+                        }
+                    });
+                }
+
+                // 异步加载并渲染页面
+                async function loadPage(pageName) {
+                    if (pageName === currentPageName) {
+                        return;
                     }
-                }, 100);
+                    
+                    currentPageName = pageName;
+                    setActiveMenuItem(pageName);
+                    
+                    // 更新浏览器地址栏（不刷新页面）
+                    if (window.history && window.history.pushState) {
+                        window.history.pushState({ pageName }, '', `/${pageName}`);
+                    }
+                    
+                    // 显示加载中
+                    contentTarget.innerHTML = `
+                        <div style="text-align: center; padding: 50px; color: #999;">
+                            <div>加载中...</div>
+                        </div>
+                    `;
+                    
+                    try {
+                        // 异步请求页面 schema
+                        const response = await fetch(`/api/pages/${pageName}`);
+                        if (!response.ok) {
+                            throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+                        }
+                        const schema = await response.json();
+                        
+                        // 清空内容区域并用 AMIS 渲染
+                        contentTarget.innerHTML = '';
+                        const amis = amisRequire('amis/embed');
+                        amis.embed('#amis-main-content', schema, {}, {
+                            theme: 'cxd',
+                            locale: 'zh-CN'
+                        });
+                    } catch (e) {
+                        console.error(`❌ 加载页面 ${pageName} 失败:`, e);
+                        contentTarget.innerHTML = `
+                            <div style="color: #ff4d4f; padding: 20px; background: #fff1f0; border: 1px solid #ffa39e; border-radius: 4px;">
+                                <h3>加载页面失败</h3>
+                                <p>${e.message}</p>
+                                <p>API 路径: /api/pages/${pageName}</p>
+                            </div>
+                        `;
+                    }
+                }
+
+                // 绑定点击事件
+                document.querySelectorAll('.amis-AsideNav-item a[data-page-name]').forEach(link => {
+                    link.addEventListener('click', function(e) {
+                        const pageName = this.getAttribute('data-page-name');
+                        if (pageName) {
+                            e.preventDefault();
+                            loadPage(pageName);
+                        }
+                    });
+                });
+
+                // 处理浏览器前进/后退
+                window.addEventListener('popstate', function(e) {
+                    if (e.state && e.state.pageName) {
+                        loadPage(e.state.pageName);
+                    }
+                });
+
+                // 如果初始 URL 已经有路径，尝试加载对应页面
+                const initialPath = window.location.pathname.replace(/^\//, '');
+                if (initialPath && initialPath !== '') {
+                    setTimeout(() => loadPage(initialPath), 100);
+                }
 
             } catch (e) {
                 console.error("初始化崩溃:", e);

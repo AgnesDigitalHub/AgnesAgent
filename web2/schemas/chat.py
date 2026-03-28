@@ -194,10 +194,22 @@ def get_chat_schema():
             const res = await fetch('/api/status');
             const data = await res.json();
             
-            if (data.has_active) {
-                statusText.textContent = `✅ 当前模型: ${data.active_profile_name} (${data.llm_provider})`;
+            let status = '';
+            if (data.has_active_llm) {
+                status += `✅ 当前模型: ${data.active_profile_name} (${data.llm_provider})`;
             } else {
-                statusText.textContent = '⚠️ 未激活任何模型，请先去模型管理激活';
+                status += '⚠️ 未激活任何模型';
+            }
+            
+            if (data.has_active_persona) {
+                status += ` | 👤 当前人格: ${data.active_persona.full_name}`;
+            } else {
+                status += ' | 无激活人格';
+            }
+            
+            statusText.textContent = status;
+            
+            if (!data.has_active_llm) {
                 addSystemMessage('请先在「模型管理」中添加并激活一个 LLM 配置');
             }
         } catch (e) {

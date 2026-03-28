@@ -21,7 +21,6 @@ from agnes import (
     OpenAIProvider,
     OpenAIWhisperProvider,
     OpenVINOProvider,
-    PromptTemplates,
     ProviderSelector,
     get_logger,
 )
@@ -73,18 +72,34 @@ class AgnesAgent:
         # 保存显示用的 provider 名称
         self._llm_provider_display_name = display_provider or provider_type
 
+        # 所有兼容 OpenAI 接口格式的供应商都走 OpenAIProvider
+        openai_compatible_providers = {
+            "openai", "openai-compat", "deepseek", "gemini", 
+            "anthropic", "openvino-server", "local-api", "generic"
+        }
+        
         if provider_type == "ollama":
             self.llm_provider = OllamaProvider(
                 base_url=config.base_url or "http://localhost:11434",
                 model=config.model,
                 proxy=self.config.proxy.http_proxy,
             )
-        elif provider_type in ["openai", "openvino-server", "local-api"]:
-            if provider_type == "openai" and not config.api_key:
-                raise ValueError("OpenAI API key is required")
+        elif provider_type in openai_compatible_providers:
+            # 默认 API Key 处理：本地服务一般不需要 key
+            default_api_key = "dummy-key" if provider_type in ["ollama", "openvino-server", "generic"] else ""
+            # 默认 Base URL
+            default_base_url = {
+                "openai": "https://api.openai.com/v1",
+                "deepseek": "https://api.deepseek.com",
+                "gemini": "https://generativelanguage.googleapis.com/v1beta",
+                "anthropic": "https://api.anthropic.com",
+                "ollama": "http://localhost:11434/v1",
+                "openvino-server": "http://localhost:8000/v1",
+            }.get(provider_type, "http://localhost:8000/v1")
+            
             self.llm_provider = OpenAIProvider(
-                api_key=config.api_key or "dummy-key",
-                base_url=config.base_url or "https://api.openai.com/v1",
+                api_key=config.api_key or default_api_key,
+                base_url=config.base_url or default_base_url,
                 model=config.model,
                 proxy=self.config.proxy.http_proxy,
             )
@@ -496,7 +511,6 @@ async def main():
     parser = argparse.ArgumentParser(description="AgnesAgent - AI Agent Infrastructure")
     parser.add_argument("--config", default="config/config.yaml", help="Path to config file")
     parser.add_argument("--chat", action="store_true", help="Interactive chat mode")
-    parser.add_argument("--list-templates", action="store_true", help="List available prompt templates")
     parser.add_argument(
         "--no-select",
         action="store_true",
@@ -510,12 +524,6 @@ async def main():
     parser.add_argument("--web2", action="store_true", help="Start Web2 Amis SPA console")
     parser.add_argument("--reload", action="store_true", help="Auto reload schema on each request (dev mode)")
     args = parser.parse_args()
-
-    if args.list_templates:
-        print("可用的提示词模板:\n")
-        for template in PromptTemplates.list_templates():
-            print(f"  - {template.name}: {template.description}")
-        return
 
     if not os.path.exists(args.config):
         print(f"Config file not found: {args.config}")
@@ -652,7 +660,6 @@ async def main():
             print("  --chat           交互式对话模式")
             print("  --no-server      不启动 Agnes Server")
             print("  --web            启动旧版 Web 服务器 (已弃用)")
-            print("  --list-templates 列出可用的提示词模板")
             print("  --config FILE    指定配置文件")
             print("  --no-select      跳过 provider 选择菜单")
             print("  --reload         开发模式：每次请求重新加载 schema")

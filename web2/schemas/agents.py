@@ -3,21 +3,7 @@ Agent 管理页面 schema
 演示如何使用 python-amis Pydantic 模型构建 schema
 """
 
-from amis.components.Page import Page
-from amis.components.CRUD2 import CRUD2
-from amis.components.CRUD2Table import CRUD2Table
-from amis.components.CRUD2Cards import CRUD2Cards
-from amis.components.Button import Button
-from amis.components.Dialog import Dialog
-from amis.components.Form import Form
-from amis.components.InputText import InputText
-from amis.components.Textarea import Textarea
-from amis.components.Switch import Switch
-from amis.components.Column import Column
-from amis.components.Status import Status
-from amis.components.Operation import Operation
-from amis.components.Action import Action
-from amis.components.DialogAction import DialogAction
+from amis.amis import amis
 
 
 def get_agents_schema() -> dict:
@@ -25,114 +11,109 @@ def get_agents_schema() -> dict:
     使用 python-amis Pydantic 模型构建 Agent 管理页面 schema
     返回的 dict 会直接嵌入 App 配置的 pages 中
     """
+    a = amis()
 
-    # 表格列配置
-    columns = [
-        Column()\
-            .name("id")\
-            .label("ID")\
-            .width("60"),
-
-        Column()\
-            .name("name")\
-            .label("名称"),
-
-        Column()\
-            .name("description")\
-            .label("描述")\
-            .breakpoint("md"),
-
-        Column()\
-            .name("enabled")\
-            .label("状态")\
-            .width("100")\
-            .type("status")\
-            .mapping({
-                "true": {"label": "启用", "color": "green"},
-                "false": {"label": "禁用", "color": "red"},
-            }),
-
-        Column()\
-            .name("created_at")\
-            .label("创建时间")\
-            .type("datetime")\
-            .format("YYYY-MM-DD HH:mm")\
-            .breakpoint("lg"),
-
-        Operation()\
-            .label("操作")\
-            .width("200")\
-            .fixed("right")\
-            .buttons([
-                DialogAction()\
-                    .label("编辑")\
-                    .level("link")\
-                    .dialog(Dialog()\
-                        .title("编辑 Agent")\
-                        .body([
-                            Form()\
-                                .api("/api/agents/save/$id")\
-                                .initApi("/api/agents/get/$id")\
-                                .body([
-                                    InputText()\
-                                        .name("name")\
-                                        .label("Agent 名称")\
-                                        .required(True),
-                                    Textarea()\
-                                        .name("description")\
-                                        .label("描述"),
-                                    Switch()\
-                                        .name("enabled")\
-                                        .label("启用")\
-                                        .value(True),
-                                ])
-                                .set("buttons", [
-                                    {"type": "submit", "label": "保存", "primary": True}
-                                ])
-                        ])
-                    ),
-                Action()\
-                    .label("删除")\
-                    .level("link")\
-                    .type("submit")\
-                    .api("/api/agents/delete/$id")\
-                    .confirmText("确定要删除这个 Agent 吗？"),
-            ]),
-    ]
-
-    # CRUD 配置
-    crud = CRUD2()\
-        .api("/api/agents/list")\
-        .addDialog(Dialog()\
-            .title("新建 Agent")\
+    # Add dialog
+    add_dialog = a.Dialog()
+    add_dialog.title("新建 Agent")
+    add_dialog.body(
+        a.Form()
+            .api("/api/agents/create")
             .body([
-                Form()\
-                    .api("/api/agents/create")\
-                    .body([
-                        InputText()\
-                            .name("name")\
-                            .label("Agent 名称")\
-                            .required(True),
-                        Textarea()\
-                            .name("description")\
-                            .label("描述"),
-                        Switch()\
-                            .name("enabled")\
-                            .label("启用")\
-                            .value(True),
-                    ])
-                    .set("buttons", [
-                        {"type": "submit", "label": "创建", "primary": True}
+                a.InputText()
+                    .name("name")
+                    .label("Agent 名称")
+                    .required(True),
+                a.Textarea()
+                    .name("description")
+                    .label("描述"),
+                a.Switch()
+                    .name("enabled")
+                    .label("启用")
+                    .value(True),
+            ])
+            .set("buttons", [
+                {"type": "submit", "label": "创建", "primary": True}
+            ])
+    )
+
+    add_btn = a.Button()
+    add_btn.type("button").label("新建 Agent").level("primary")
+    add_btn.actionType("dialog").dialog(add_dialog)
+
+    # Edit dialog
+    edit_dialog = a.Dialog()
+    edit_dialog.title("编辑 Agent")
+    edit_dialog.body(
+        a.Form()
+            .api("put:/api/agents/save/${id}")
+            .initApi("get:/api/agents/get/${id}")
+            .body([
+                a.InputText()
+                    .name("name")
+                    .label("Agent 名称")
+                    .required(True),
+                a.Textarea()
+                    .name("description")
+                    .label("描述"),
+                a.Switch()
+                    .name("enabled")
+                    .label("启用"),
+            ])
+    )
+
+    # Actions
+    toggle_btn = a.Button()
+    toggle_btn.type("button").label("${enabled ? '禁用' : '启用'}")
+    toggle_btn.level("${enabled ? 'default' : 'success'}")
+    toggle_btn.actionType("ajax")
+    toggle_btn.api("put:/api/agents/save/${id}")
+    toggle_btn.data({"enabled": "${!enabled}"})
+
+    edit_btn = a.Button()
+    edit_btn.type("button").label("编辑").level("info")
+    edit_btn.actionType("dialog").dialog(edit_dialog)
+
+    delete_btn = a.Button()
+    delete_btn.type("button").label("删除").level("danger")
+    delete_btn.actionType("ajax").confirmText("确定要删除这个 Agent 吗？")
+    delete_btn.api("delete:/api/agents/delete/${id}")
+
+    # CRUD Cards 卡片布局
+    crud = a.CRUD()
+    crud.api({
+        "method": "get",
+        "url": "/api/agents/list",
+        "responseData": {"items": "${items}", "total": "$total"},
+    })
+    crud.perPage(12)
+    crud.headerToolbar(["reload", add_btn])
+    crud.mode("cards")
+    crud.card(
+        a.Card()\
+            .title("${name}")\
+            .subTitle("${enabled ? '启用' : '禁用'}")\
+            .body([
+                a.Tpl()\
+                    .tpl("<div style=\"color: #999; font-size: 13px; margin: 8px 0;\">${description || '无描述'}</div>"),
+                a.Flex()\
+                    .className("flex justify-between items-center mt-4")\
+                    .items([
+                        a.Badge()\
+                            .label("${enabled ? '启用' : '禁用'}")\
+                            .level("${enabled ? 'success' : 'default'}"),
+                        a.Group()\
+                            .buttons([edit_btn, toggle_btn, delete_btn])
                     ])
             ])
-        )\
-        .set("columns", columns)\
-        .bulkActions([
-            {"label": "批量删除", "type": "button", "level": "danger", "api": "/api/agents/bulk-delete", "confirmText": "确定要删除选中吗？"}
-        ])
+    )
+
+    crud.bulkActions([
+        {"label": "批量删除", "type": "button", "level": "danger", "api": "/api/agents/bulk-delete", "confirmText": "确定要删除选中吗？"}
+    ])
 
     # 组合成完整页面
-    page = Page()\
+    page = a.Page()\
         .title("Agent 管理")\
         .body([crud])
 

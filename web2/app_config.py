@@ -42,29 +42,78 @@ class AmisAppConfig:
         app_config = self.raw_config.get("config", {})
         self.api_prefix = app_config.get("api_prefix", "/api")
         
+        # 设置日志级别
+        log_level_name = app_config.get("log_level", "info").upper()
+        log_level = getattr(logging, log_level_name, logging.INFO)
+        logging.getLogger().setLevel(log_level)
+        
         logger.info(f"已加载 YAML 配置: {self.config_path}")
+        logger.info(f"日志级别设置为: {log_level_name} ({log_level})")
         return self.raw_config
     
     def _import_schema_getter(self, page_name: str):
         """动态导入页面 schema 获取函数"""
+        import sys
+        import importlib.util
+        from pathlib import Path
+        
+        logger.debug(f"Python sys.path: {sys.path[:5]}...")
+        
+        getter_name = f"get_{page_name}_schema"
+        
+        # 尝试 1: 从 web2.schemas 包导入（从项目根目录启动时）
         try:
-            # 尝试从 schemas 包导入
             module_name = f"web2.schemas.{page_name}"
+            logger.debug(f"尝试导入: {module_name}")
             module = import_module(module_name)
-            getter_name = f"get_{page_name}_schema"
             if hasattr(module, getter_name):
+                logger.debug(f"导入成功: {module_name}")
                 return getattr(module, getter_name)
-        except ImportError:
-            # 尝试直接导入（当在 web2 目录直接运行时）
-            try:
-                module_name = f"schemas.{page_name}"
-                module = import_module(module_name)
-                getter_name = f"get_{page_name}_schema"
-                if hasattr(module, getter_name):
-                    return getattr(module, getter_name)
-            except ImportError as e:
-                logger.warning(f"无法导入 schema: {page_name}, 错误: {e}")
+        except ImportError as e:
+            logger.info(f"导入 web2.schemas.{page_name} 失败: {e}")
+        
+        # 尝试 2: 尝试直接从当前包导入（当在 web2 目录直接运行时）
+        try:
+            module_name = f".schemas.{page_name}"
+            logger.debug(f"尝试导入相对包: {module_name}")
+            module = import_module(module_name, package="web2")
+            if hasattr(module, getter_name):
+                logger.debug(f"导入成功: {module_name} 从相对包")
+                return getattr(module, getter_name)
+        except ImportError as e2:
+            logger.info(f"导入相对包失败: {e2}")
+        
+        # 尝试 3: 直接通过文件路径导入（最可靠的方式）
+        try:
+            schema_dir = Path(__file__).parent / "schemas"
+            module_path = schema_dir / f"{page_name}.py"
+            if not module_path.exists():
+                logger.error(f"schema 文件不存在: {module_path}")
                 return None
+            
+            logger.info(f"尝试文件路径导入: {module_path}")
+            spec = importlib.util.spec_from_file_location(
+                f"web2.schemas.{page_name}", 
+                module_path
+            )
+            if spec is None or spec.loader is None:
+                logger.error(f"无法创建模块 spec: {module_path}")
+                return None
+            
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[f"web2.schemas.{page_name}"] = module
+            spec.loader.exec_module(module)
+            
+            if hasattr(module, getter_name):
+                logger.info(f"文件路径导入成功: {module_path}")
+                return getattr(module, getter_name)
+            else:
+                logger.error(f"模块中找不到 {getter_name} 函数，模块内容: {dir(module)}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"文件路径导入也失败: {page_name}, 错误: {e}", exc_info=True)
+            return None
         
         return None
     
@@ -210,6 +259,10 @@ class AmisAppConfig:
         # 故意删除 name 字段，防止覆盖 brandName
         if "name" in result:
             del result["name"]
+        
+        logger.debug(f"构建顶层 App 结构，pages 数量: {len(amis_pages)}")
+        for i, page in enumerate(amis_pages):
+            logger.debug(f"  page[{i}]: label={page.get('label')}, url={page.get('url')}, schemaApi={page.get('schemaApi')}")
         
         return result
     

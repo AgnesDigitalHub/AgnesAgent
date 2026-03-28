@@ -204,3 +204,143 @@ class ProfileStore:
         """获取当前激活的 ID"""
         data = self._read_file()
         return data.get("active_id")
+
+
+# ============ Agent 模型 ============
+
+@dataclass
+class Agent:
+    """Agent 定义"""
+    id: str
+    name: str
+    description: str
+    enabled: bool
+    created_at: str = ""
+    updated_at: str = ""
+    
+    def to_dict(self) -> dict:
+        """转换为字典"""
+        return asdict(self)
+    
+    @classmethod
+    def from_dict(cls, data: dict) -> "Agent":
+        """从字典创建"""
+        return cls(**data)
+
+
+class AgentStore:
+    """Agent 存储"""
+    
+    def __init__(self, storage_path: Path):
+        self.storage_path = storage_path
+        self.storage_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    def _read_file(self) -> dict:
+        """读取存储文件"""
+        if not self.storage_path.exists():
+            return {"agents": []}
+        
+        with open(self.storage_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    
+    def _write_file(self, data: dict) -> None:
+        """写入存储文件"""
+        with open(self.storage_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    
+    def list_agents(self) -> List[Agent]:
+        """列出所有 Agent"""
+        data = self._read_file()
+        agents = []
+        for a_data in data.get("agents", []):
+            agents.append(Agent.from_dict(a_data))
+        return agents
+    
+    def get_agent(self, agent_id: str) -> Optional[Agent]:
+        """获取单个 Agent"""
+        agents = self.list_agents()
+        for a in agents:
+            if a.id == agent_id:
+                return a
+        return None
+    
+    def create_agent(
+        self,
+        name: str,
+        description: str,
+        enabled: bool = True,
+    ) -> Agent:
+        """创建新 Agent"""
+        now = datetime.now().isoformat()
+        agent = Agent(
+            id=str(uuid.uuid4()),
+            name=name,
+            description=description,
+            enabled=enabled,
+            created_at=now,
+            updated_at=now,
+        )
+        
+        data = self._read_file()
+        agents = data.get("agents", [])
+        agents.append(agent.to_dict())
+        data["agents"] = agents
+        self._write_file(data)
+        
+        return agent
+    
+    def update_agent(
+        self,
+        agent_id: str,
+        **kwargs,
+    ) -> Optional[Agent]:
+        """更新 Agent"""
+        data = self._read_file()
+        agents = data.get("agents", [])
+        
+        for i, a_data in enumerate(agents):
+            if a_data["id"] == agent_id:
+                # 更新字段
+                for key, value in kwargs.items():
+                    if value is not None:
+                        a_data[key] = value
+                a_data["updated_at"] = datetime.now().isoformat()
+                
+                agents[i] = a_data
+                data["agents"] = agents
+                self._write_file(data)
+                
+                return Agent.from_dict(a_data)
+        
+        return None
+    
+    def delete_agent(self, agent_id: str) -> bool:
+        """删除 Agent"""
+        data = self._read_file()
+        agents = data.get("agents", [])
+        
+        original_len = len(agents)
+        agents = [a for a in agents if a["id"] != agent_id]
+        
+        if len(agents) == original_len:
+            return False
+        
+        data["agents"] = agents
+        self._write_file(data)
+        
+        return True
+    
+    def bulk_delete_agents(self, agent_ids: List[str]) -> int:
+        """批量删除 Agent"""
+        data = self._read_file()
+        agents = data.get("agents", [])
+        
+        original_len = len(agents)
+        agents = [a for a in agents if a["id"] not in agent_ids]
+        deleted_count = original_len - len(agents)
+        
+        if deleted_count > 0:
+            data["agents"] = agents
+            self._write_file(data)
+        
+        return deleted_count

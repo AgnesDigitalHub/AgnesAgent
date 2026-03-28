@@ -8,7 +8,10 @@ from agnes.utils.config_loader import ASRConfig, Config, LLMConfig
 class ProviderSelector:
     """Provider 选择器"""
 
-    LLM_PROVIDERS = ["ollama", "openai", "openvino-server", "local-api"]
+    LLM_PROVIDERS = [
+        "openai", "openai-compat", "deepseek", "gemini", 
+        "anthropic", "ollama", "openvino-server", "openvino", "generic"
+    ]
     ASR_PROVIDERS = ["local_whisper", "openai_whisper"]
 
     @classmethod
@@ -67,23 +70,47 @@ class ProviderSelector:
             base_url = input(f"  Base URL [{default_base_url}]: ").strip()
             llm_config.base_url = base_url or default_base_url
 
-        elif provider_type == "openai":
-            default_model = config.llm.model if config and config.llm.provider == "openai" else "gpt-3.5-turbo"
+        elif provider_type in ["openai", "openai-compat", "deepseek", "gemini", "anthropic", "generic"]:
+            # 所有 OpenAI 兼容供应商配置逻辑相同
+            default_models = {
+                "openai": "gpt-3.5-turbo",
+                "deepseek": "deepseek-chat",
+                "gemini": "gemini-pro",
+                "anthropic": "claude-3-sonnet-20240229",
+                "openai-compat": "gpt-3.5-turbo",
+                "generic": "custom-model",
+            }
+            default_base_urls = {
+                "openai": "https://api.openai.com/v1",
+                "deepseek": "https://api.deepseek.com",
+                "gemini": "https://generativelanguage.googleapis.com/v1beta",
+                "anthropic": "https://api.anthropic.com",
+                "openai-compat": "https://api.openai.com/v1",
+                "generic": "http://localhost:8000/v1",
+            }
+            
+            default_model = (
+                config.llm.model if config and config.llm.provider == provider_type 
+                else default_models.get(provider_type, "gpt-3.5-turbo")
+            )
             llm_config.model = input(f"  模型名称 [{default_model}]: ").strip() or default_model
 
             default_base_url = (
-                config.llm.base_url if config and config.llm.provider == "openai" else "https://api.openai.com/v1"
+                config.llm.base_url if config and config.llm.provider == provider_type 
+                else default_base_urls.get(provider_type, "http://localhost:8000/v1")
             )
             base_url = input(f"  Base URL [{default_base_url}]: ").strip()
             llm_config.base_url = base_url or default_base_url
 
-            current_api_key = config.llm.api_key if config and config.llm.provider == "openai" else ""
-            if current_api_key:
-                mask = "*" * min(len(current_api_key), 8)
-                api_key = input(f"  API Key [{mask}]: ").strip()
-                llm_config.api_key = api_key or current_api_key
-            else:
-                llm_config.api_key = input("  API Key: ").strip()
+            # Ollama 和 openvino-server 不需要 key，其他供应商需要
+            if provider_type not in ["ollama", "openvino-server", "generic"]:
+                current_api_key = config.llm.api_key if config and config.llm.provider == provider_type else ""
+                if current_api_key:
+                    mask = "*" * min(len(current_api_key), 8)
+                    api_key = input(f"  API Key [{mask}]: ").strip()
+                    llm_config.api_key = api_key or current_api_key
+                else:
+                    llm_config.api_key = input("  API Key: ").strip()
 
         elif provider_type == "openvino-server":
             default_model = config.llm.model if config and config.llm.provider == "openvino-server" else "qwen1.5b-ov"
