@@ -166,10 +166,10 @@ persona_store = PersonaStore(persona_storage_path)
 
 # 请求模型 - LLM Profile
 class CreateProfileRequest(BaseModel):
-    name: str
+    name: str | None = None
     description: str = ""
     provider: str
-    model: str
+    model: str | None = None
     base_url: str | None = None
     api_key: str | None = None
     temperature: float = 0.7
@@ -404,11 +404,38 @@ def register_api_routes(app: FastAPI, api_prefix: str = "/api"):
     @app.post(f"{api_prefix}/profiles")
     async def create_profile(req: CreateProfileRequest):
         """创建新配置"""
+        # 如果没有提供 name，自动生成
+        name = req.name
+        if not name:
+            # 使用 generate_id 逻辑生成唯一名称
+            existing_profiles = profile_store.list_profiles()
+            existing_ids = {p.id for p in existing_profiles}
+            base_id = req.provider
+            if base_id not in existing_ids:
+                name = base_id
+            else:
+                counter = 2
+                while f"{base_id}-{counter}" in existing_ids:
+                    counter += 1
+                name = f"{base_id}-{counter}"
+
+        # 如果没有提供 model，使用默认值
+        model = req.model
+        if not model:
+            default_models = {
+                "openai": "gpt-4o",
+                "deepseek": "deepseek-chat",
+                "gemini": "gemini-pro",
+                "anthropic": "claude-3-sonnet-20240229",
+                "ollama": "llama3",
+            }
+            model = default_models.get(req.provider, "")
+
         profile = profile_store.create_profile(
-            name=req.name,
+            name=name,
             description=req.description,
             provider=req.provider,
-            model=req.model,
+            model=model,
             base_url=req.base_url,
             api_key=req.api_key,
             temperature=req.temperature,

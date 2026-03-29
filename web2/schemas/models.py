@@ -43,10 +43,10 @@ def get_models_schema():
     it1 = a.Hidden()
     it1.name("name")
 
-    # 隐藏的 model 字段（创建时为空）
+    # 隐藏的 model 字段（根据供应商自动填充）
     sel_model = a.Hidden()
     sel_model.name("model")
-    sel_model.value("")
+    sel_model.id("add_model")
 
     # 隐藏的 base_url 字段（根据供应商自动填充）
     it4 = a.Hidden()
@@ -72,7 +72,9 @@ def get_models_schema():
     # 简化的表单
     add_form = a.Form()
     add_form.api("post:/api/profiles")
-    add_form.body([sel1]).redirectText("创建成功").messages({"success": "创建成功", "failed": "创建失败"})
+    add_form.body([sel1, it1, sel_model, it4, ipw, it2, inn1, inn2]).redirectText("创建成功").messages(
+        {"success": "创建成功", "failed": "创建失败"}
+    )
 
     # 当供应商选择变化时，自动填充所有隐藏字段
     add_form.watch(
@@ -84,6 +86,13 @@ def get_models_schema():
                     "componentId": "add_base_url",
                     "args": {
                         "value": "${provider === 'openai' ? 'https://api.openai.com/v1' : provider === 'deepseek' ? 'https://api.deepseek.com' : provider === 'gemini' ? 'https://generativelanguage.googleapis.com/v1beta' : provider === 'anthropic' ? 'https://api.anthropic.com' : provider === 'ollama' ? 'http://localhost:11434/v1' : provider === 'openvino-server' ? 'http://localhost:8000/v1' : 'http://localhost:8000/v1'}"
+                    },
+                },
+                {
+                    "actionType": "setValue",
+                    "componentId": "add_model",
+                    "args": {
+                        "value": "${provider === 'openai' ? 'gpt-4o' : provider === 'deepseek' ? 'deepseek-chat' : provider === 'gemini' ? 'gemini-pro' : provider === 'anthropic' ? 'claude-3-sonnet-20240229' : provider === 'ollama' ? 'llama3' : ''}"
                     },
                 },
                 {
@@ -219,17 +228,12 @@ def get_models_schema():
     edit_dialog.body(edit_form)
 
     # Actions
-    activate_btn = a.Button()
-    activate_btn.type("button").label("激活").level("success")
-    activate_btn.actionType("ajax").api("post:/api/profiles/${id}/activate")
-    activate_btn.visibleOn("!data.is_active")
-
     edit_btn = a.Button()
-    edit_btn.type("button").label("编辑").level("info")
+    edit_btn.type("button").label("编辑").level("info").size("sm")
     edit_btn.actionType("dialog").dialog(edit_dialog)
 
     delete_btn = a.Button()
-    delete_btn.type("button").label("删除").level("danger")
+    delete_btn.type("button").label("删除").level("danger").size("sm")
     delete_btn.actionType("ajax").confirmText("确定要删除此配置吗？")
     delete_btn.api("delete:/api/profiles/${id}")
 
@@ -248,24 +252,23 @@ def get_models_schema():
     crud.card(
         a.Card()
         .title("${name}")
-        .subTitle("${provider} - ${model}")
+        .subTitle("${provider}")
         .body(
-            [
-                a.Tpl().tpl(
-                    "<div style=\"color: #999; font-size: 13px; margin: 8px 0;\">${description || '无描述'}</div>"
-                ),
-                a.Flex()
-                .className("flex justify-between items-center mt-4")
-                .items(
-                    [
-                        a.Badge()
-                        .label("${is_active ? '激活中' : '未激活'}")
-                        .level("${is_active ? 'success' : 'info'}"),
-                        a.Group().buttons([edit_btn, activate_btn, delete_btn]),
-                    ]
-                ),
-            ]
+            a.Tpl().tpl(
+                '<div class="flex flex-col gap-2">'
+                '<div style="display: flex; align-items: center; gap: 8px;">'
+                '<span style="color: #666; font-size: 12px;">ID:</span>'
+                '<code style="background: #f0f0f0; padding: 2px 6px; border-radius: 4px; font-size: 12px;">${name}</code>'
+                "</div>"
+                '<div style="display: flex; align-items: center; gap: 8px;">'
+                '<span style="color: #666; font-size: 12px;">模型:</span>'
+                "<span style=\"font-size: 12px;\">${model || '未配置'}</span>"
+                "</div>"
+                "<div style=\"color: #999; font-size: 12px; margin-top: 4px;\">${description || '无描述'}</div>"
+                "</div>"
+            )
         )
+        .actions([edit_btn, delete_btn])
     )
 
     page = a.Page()
