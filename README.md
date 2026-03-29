@@ -76,10 +76,10 @@ cp config/config.yaml.example config/config.yaml
 uv sync --extra gameautomation
 ```
 
-### 启动 Web 控制台（推荐）
+### 启动
 
 ```bash
-# 启动新版 Web2 Amis 控制台
+# 启动框架本体
 uv run main.py --web2
 ```
 
@@ -92,24 +92,7 @@ uv run main.py --web2
 uv run main.py --chat
 ```
 
-
-## 💡 使用示例
-
-### 基础对话
-
-```python
-from agnes import AgnesAgent
-
-async with AgnesAgent("config/config.yaml") as agent:
-    # 设置系统提示词
-    agent.set_system_prompt("你是一个有用的助手。")
-
-    # 对话
-    response = await agent.chat("你好，请介绍一下你自己。")
-    print(response.content)
-```
-
-### MCP 游戏自动化示例
+### MCP 游戏自动化示例(未完成)
 
 提供了完整的 MCP 服务器示例，可以将屏幕捕获、OCR、键盘、鼠标技能暴露为 MCP 工具：
 
@@ -121,7 +104,8 @@ uv run python examples/mcp_game_automation.py --help
 uv run python examples/mcp_game_automation.py
 ```
 
-可用工具：
+可用工具(未完成)：
+
 - `screen_capture` - 截取屏幕截图
 - `ocr_read` - 识别图片中的文字
 - `keyboard_action` - 执行键盘操作
@@ -174,6 +158,14 @@ pre-commit install
 [![Star History Chart](https://api.star-history.com/svg?repos=AgnesDigitalHub/AgnesAgent&type=Date)](https://star-history.com/#AgnesDigitalHub/AgnesAgent&Date)
 
 </div>
+
+## 📝 更新日志
+
+完整的版本历史和更新记录请查看 [CHANGELOG.md](./CHANGELOG.md)。
+
+当前版本：**0.1.0beta** (2026-03-29)
+
+---
 
 ## 📄 License
 

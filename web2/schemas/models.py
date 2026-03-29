@@ -21,101 +21,94 @@ def get_models_schema():
         {"label": "其他（通用 API）", "value": "generic"},
     ]
 
-    # Create add dialog form fields
-    # 第一步：选择供应商
-    it1 = a.InputText()
-    it1.name("name").label("ID / 唯一名称").required(True).description("用于识别此配置的唯一名称，例如：openai-gpt-4o")
+    # 供应商默认配置映射
+    provider_defaults = {
+        "openai": {"base_url": "https://api.openai.com/v1", "model": "gpt-4o"},
+        "openai-compat": {"base_url": "http://localhost:8000/v1", "model": ""},
+        "deepseek": {"base_url": "https://api.deepseek.com", "model": "deepseek-chat"},
+        "gemini": {"base_url": "https://generativelanguage.googleapis.com/v1beta", "model": "gemini-pro"},
+        "anthropic": {"base_url": "https://api.anthropic.com", "model": "claude-3-sonnet-20240229"},
+        "ollama": {"base_url": "http://localhost:11434/v1", "model": "llama3"},
+        "openvino-server": {"base_url": "http://localhost:8000/v1", "model": ""},
+        "generic": {"base_url": "http://localhost:8000/v1", "model": ""},
+    }
 
-    it2 = a.InputText()
-    it2.name("description").label("描述")
-
+    # Create add dialog form fields - 简化版本：只选择供应商
     sel1 = a.Select()
     sel1.name("provider").label("AI 供应商").required(True).options(provider_options).description(
-        "选择 AI 供应商后将自动填充默认配置"
+        "选择供应商后将自动创建配置，创建后可编辑详细信息"
     )
 
-    # 基础配置 - 根据供应商自动填充
-    it4 = a.InputText()
-    it4.name("base_url").label("API Base URL").placeholder("留空使用供应商默认地址")
+    # 自动生成的 ID（隐藏，自动填充）
+    it1 = a.Hidden()
+    it1.name("name")
 
-    ipw = a.InputPassword()
-    ipw.name("api_key").label("API Key").visibleOn("provider !== 'ollama' && provider !== 'openvino-server'")
+    # 隐藏的 model 字段（创建时为空）
+    sel_model = a.Hidden()
+    sel_model.name("model")
+    sel_model.value("")
 
-    # 模型选择：先让用户填好供应商和认证信息，然后点击获取模型列表
-    fetch_btn = a.Button()
-    fetch_btn.label("获取可用模型").level("primary").size("sm")
-    fetch_btn.actionType("ajax")
-    fetch_btn.api(
-        {
-            "method": "post",
-            "url": "/api/profiles/fetch-models",
-            "data": {"provider": "${provider}", "base_url": "${base_url}", "api_key": "${api_key}"},
-        }
-    )
-    # 请求成功后把 models 选项设置到 model 下拉框
-    fetch_btn.onEvent(
-        "success",
+    # 隐藏的 base_url 字段（根据供应商自动填充）
+    it4 = a.Hidden()
+    it4.name("base_url")
+
+    # 隐藏的其他字段
+    ipw = a.Hidden()
+    ipw.name("api_key")
+    ipw.value("")
+
+    it2 = a.Hidden()
+    it2.name("description")
+    it2.value("")
+
+    inn1 = a.Hidden()
+    inn1.name("temperature")
+    inn1.value(0.7)
+
+    inn2 = a.Hidden()
+    inn2.name("max_tokens")
+    inn2.value(None)
+
+    # 简化的表单
+    add_form = a.Form()
+    add_form.api("post:/api/profiles")
+    add_form.body([sel1]).redirectText("创建成功").messages({"success": "创建成功", "failed": "创建失败"})
+
+    # 当供应商选择变化时，自动填充所有隐藏字段
+    add_form.watch(
+        "provider",
         {
             "actions": [
-                {"actionType": "setValue", "componentName": "model_select", "args": {"value": "${event.data.models}"}}
+                {
+                    "actionType": "setValue",
+                    "componentId": "add_base_url",
+                    "args": {
+                        "value": "${provider === 'openai' ? 'https://api.openai.com/v1' : provider === 'deepseek' ? 'https://api.deepseek.com' : provider === 'gemini' ? 'https://generativelanguage.googleapis.com/v1beta' : provider === 'anthropic' ? 'https://api.anthropic.com' : provider === 'ollama' ? 'http://localhost:11434/v1' : provider === 'openvino-server' ? 'http://localhost:8000/v1' : 'http://localhost:8000/v1'}"
+                    },
+                },
+                {
+                    "actionType": "ajax",
+                    "args": {
+                        "api": {
+                            "method": "post",
+                            "url": "/api/profiles/generate-id",
+                            "data": {"provider": "${provider}"},
+                        }
+                    },
+                    "outputVar": "generatedId",
+                },
+                {
+                    "actionType": "setValue",
+                    "componentId": "add_name",
+                    "args": {"value": "${generatedId.id}"},
+                },
             ]
         },
     )
 
-    # 模型下拉选择框，动态加载，获取后选择
-    sel_model = a.Select()
-    sel_model.name("model").label("选择模型").required(True).id("model_select").options([]).clearable(True).placeholder(
-        "请先填写供应商信息并点击'获取可用模型'"
-    )
-
-    # 高级参数区域 - 对大多数供应商都显示
-    inn1 = a.InputNumber()
-    inn1.name("temperature").label("Temperature").value(0.7).min(0).max(2).step(0.1)
-
-    inn2 = a.InputNumber()
-    inn2.name("max_tokens").label("Max Tokens").description("最大生成 token 数，留空使用默认值")
-
-    # 组织表单：分组更清晰
-    basic_group = a.Group()
-    basic_group.label("基础配置")
-    basic_group.body([sel1, it1, it2])
-
-    connection_group = a.Group()
-    connection_group.label("连接配置")
-    connection_group.body([it4, ipw])
-
-    # 模型选择分组
-    model_group = a.Group()
-    model_group.label("模型选择")
-    model_group.body(
-        [
-            a.Html().html(
-                '<p style="color: #666; margin-bottom: 10px;">填写供应商和认证信息后，点击按钮获取可用模型列表，然后选择模型</p>'
-            ),
-            fetch_btn,
-            sel_model,
-        ]
-    )
-
-    advanced_group = a.Group()
-    advanced_group.label("高级配置")
-    advanced_group.body([inn1, inn2])
-
-    add_form = a.Form()
-    add_form.api("post:/api/profiles")
-    add_form.body([basic_group, connection_group, model_group, advanced_group]).redirectText("创建成功").messages(
-        {"success": "创建成功", "failed": "创建失败"}
-    )
-
-    # 使用 setDefault 自动填充供应商默认值
-    # 当供应商选择变化时，自动填充 base_url
-    add_form.watch(
-        "provider",
-        {
-            "type": "setValue",
-            "value": "${provider === 'openai' ? 'https://api.openai.com/v1' : provider === 'deepseek' ? 'https://api.deepseek.com' : provider === 'gemini' ? 'https://generativelanguage.googleapis.com/v1beta' : provider === 'anthropic' ? 'https://api.anthropic.com' : provider === 'ollama' ? 'http://localhost:11434/v1' : provider === 'openvino-server' ? 'http://localhost:8000/v1' : ''}",
-        },
-    )
+    # 给隐藏字段添加 id 以便 watch 中引用
+    it4.id("add_base_url")
+    it1.id("add_name")
 
     add_dialog = a.Dialog()
     add_dialog.title("新增模型配置")
@@ -162,7 +155,7 @@ def get_models_schema():
                 {
                     "actionType": "setValue",
                     "componentName": "edit_model_select",
-                    "args": {"value": "${event.data.models}"},
+                    "args": {"options": "${event.data.models}"},
                 }
             ]
         },
@@ -170,9 +163,10 @@ def get_models_schema():
 
     # 模型下拉选择框
     e_sel_model = a.Select()
-    e_sel_model.name("model").label("选择模型").required(True).id("edit_model_select").options([]).clearable(
-        True
-    ).placeholder("请先填写供应商信息并点击'获取可用模型'")
+    e_sel_model.name("model").label("选择模型").required(True).id("edit_model_select").clearable(True).placeholder(
+        "请先填写供应商信息并点击'获取可用模型'"
+    )
+    # 注意：不使用 source()，避免自动加载，只在点击按钮后才加载
 
     # 高级参数
     einn1 = a.InputNumber()

@@ -193,6 +193,10 @@ class FetchModelsRequest(BaseModel):
     api_key: str | None = None
 
 
+class GenerateIdRequest(BaseModel):
+    provider: str
+
+
 # 请求模型 - Persona (Agent)
 class CreatePersonaRequest(BaseModel):
     full_name: str
@@ -830,6 +834,28 @@ def register_api_routes(app: FastAPI, api_prefix: str = "/api"):
 
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"获取模型列表异常: {str(e)}")
+
+    @app.post(f"{api_prefix}/profiles/generate-id")
+    async def generate_profile_id(req: GenerateIdRequest):
+        """生成唯一的配置 ID"""
+        provider = req.provider
+        base_id = provider
+
+        # 检查是否已存在
+        existing_profiles = profile_store.list_profiles()
+        existing_ids = {p.id for p in existing_profiles}
+
+        # 如果基础 ID 不存在，直接返回
+        if base_id not in existing_ids:
+            return {"success": True, "id": base_id}
+
+        # 否则添加数字后缀
+        counter = 2
+        while f"{base_id}-{counter}" in existing_ids:
+            counter += 1
+
+        unique_id = f"{base_id}-{counter}"
+        return {"success": True, "id": unique_id}
 
     # ============ MCP 管理 API ============
 

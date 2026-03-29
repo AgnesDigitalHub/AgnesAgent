@@ -567,8 +567,8 @@ async def main():
                 print("Web dependencies not installed!")
                 print("Please install with: pip install -e .[web]")
                 return
-        elif args.web2:
-            # 启动 Web2 Amis SPA 控制台
+        elif args.web2 or not any([args.chat, args.web, args.no_server]):
+            # 启动 Web2 Amis SPA 控制台（默认行为）
             try:
                 import threading
                 import webbrowser
@@ -657,25 +657,17 @@ async def main():
                 print(f"Web2 dependencies not installed: {e}")
                 print("Please install with: uv sync")
                 return
-        elif not args.no_server:
-            # 默认启动 Agnes Server
-            try:
-                await start_agnes_server(agent, args.host, args.port, not args.no_browser)
-            except ImportError:
-                print("Server dependencies not installed!")
-                print("Please install with: uv sync")
-                return
         else:
             print("AgnesAgent - 高度可扩展、跨平台的 AI Agent 基础架构")
             print()
             print("使用方式:")
-            print("  (默认)          启动 Agnes Server")
+            print("  (默认)          启动 Web2 控制台")
             print("  --web2           启动 Web2 Amis SPA 控制台")
             print("  --chat           交互式对话模式")
-            print("  --no-server      不启动 Agnes Server")
             print("  --web            启动旧版 Web 服务器 (已弃用)")
             print("  --config FILE    指定配置文件")
             print("  --no-select      跳过 provider 选择菜单")
+            print("  --no-browser     不自动打开浏览器")
             print("  --reload         开发模式：每次请求重新加载 schema")
 
 

@@ -22,7 +22,7 @@ uv run ruff format
 uv run ruff check --fix
 ```
 
-## 提交前检查
+## 提交前检查(未完成)
 
 确保运行：
 

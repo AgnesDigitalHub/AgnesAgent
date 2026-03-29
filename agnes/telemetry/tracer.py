@@ -5,8 +5,7 @@ OpenTelemetry Tracer 核心配置
 
 import logging
 from collections.abc import Callable
-from contextlib import contextmanager
-from typing import ContextManager
+from contextlib import AbstractContextManager, contextmanager
 
 from opentelemetry import trace
 from opentelemetry.sdk.resources import Resource
@@ -89,7 +88,7 @@ def get_tracer() -> trace.Tracer:
 def start_span(
     name: str,
     attributes: dict | None = None,
-) -> ContextManager[trace.Span]:
+) -> AbstractContextManager[trace.Span]:
     """
     启动一个新的跨度，用于上下文管理器
     :param name: 跨度名称
