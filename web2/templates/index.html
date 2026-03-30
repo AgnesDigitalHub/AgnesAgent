@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <title>Agnes Agent 控制台</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    
+
     <!-- 强力CSS补丁，强制把侧边栏"抠"出来 -->
     <style>
         /* 1. 强力布局补丁：确保容器不坍塌 */
@@ -16,10 +16,10 @@
         }
 
         /* 2. 强力显色：强制侧边栏文字、图标为白色 */
-        .amis-Layout-aside, 
-        .amis-AsideNav, 
-        .amis-AsideNav-item, 
-        .amis-AsideNav-item a, 
+        .amis-Layout-aside,
+        .amis-AsideNav,
+        .amis-AsideNav-item,
+        .amis-AsideNav-item a,
         .amis-AsideNav-item-label {
             color: rgba(255, 255, 255, 0.9) !important; /* 强制白字 */
             visibility: visible !important;
@@ -45,7 +45,7 @@
             padding: 10px 15px !important;
             text-decoration: none !important;
         }
-        
+
         /* 6. 高亮当前选中的菜单 */
         .amis-AsideNav-item.is-active {
             background: #242e3e !important;
@@ -67,7 +67,7 @@
             try {
                 const response = await fetch('/app.json');
                 const rawData = await response.json();
-                
+
                 // 【核心修正】强制确保数据结构正确
                 const finalAppConfig = {
                     type: "app", // 强制指定类型
@@ -93,7 +93,7 @@
                 // AMIS 自动生成失败，改用原生HTML直接创建侧边栏
                 // 保证100%能生成DOM节点
                 const root = document.getElementById('root');
-                
+
                 // 创建原生侧边栏 HTML
                 let navHtml = `
                     <div style="display: flex; height: 100vh; margin: 0; padding: 0;">
@@ -115,7 +115,7 @@
                             ">${finalAppConfig.brandName}</div>
                             <nav style="padding: 10px 0;">
                 `;
-                
+
                 // 添加每个菜单项
                 finalAppConfig.pages.forEach((p, i) => {
                     const icon = p.icon || '';
@@ -134,7 +134,7 @@
                                 color: rgba(255,255,255,0.85);
                                 text-decoration: none;
                                 transition: background-color 0.2s;
-                            " onmouseover="this.style.backgroundColor='#242e3e'" 
+                            " onmouseover="this.style.backgroundColor='#242e3e'"
                               onmouseout="this.style.backgroundColor='transparent'">
                                 ${icon ? `<i class="${icon}" style="margin-right: 8px;"></i>` : ''}
                                 <span>${p.label}</span>
@@ -142,7 +142,7 @@
                         </div>
                     `;
                 });
-                
+
                 navHtml += `
                             </nav>
                         </div>
@@ -157,14 +157,14 @@
                         </div>
                     </div>
                 `;
-                
+
                 // 直接写入原生 HTML
                 root.innerHTML = navHtml;
-                
+
                 // 在主内容区域使用 AMIS 渲染首页
                 const homePage = finalAppConfig.pages.find(p => p.url === '/');
                 contentTarget = document.getElementById('amis-main-content');
-                
+
                 if (homePage && homePage.schema) {
                     amis.embed('#amis-main-content', homePage.schema, {}, {
                         theme: 'cxd',
@@ -195,22 +195,22 @@
                     if (pageName === currentPageName) {
                         return;
                     }
-                    
+
                     currentPageName = pageName;
                     setActiveMenuItem(pageName);
-                    
+
                     // 更新浏览器地址栏（不刷新页面）
                     if (window.history && window.history.pushState) {
                         window.history.pushState({ pageName }, '', `/${pageName}`);
                     }
-                    
+
                     // 显示加载中
                     contentTarget.innerHTML = `
                         <div style="text-align: center; padding: 50px; color: #999;">
                             <div>加载中...</div>
                         </div>
                     `;
-                    
+
                     try {
                         // 异步请求页面 schema
                         const response = await fetch(`/api/pages/${pageName}`);
@@ -218,7 +218,7 @@
                             throw new Error(`HTTP ${response.status}: ${await response.text()}`);
                         }
                         const schema = await response.json();
-                        
+
                         // 清空内容区域并用 AMIS 渲染
                         contentTarget.innerHTML = '';
                         const amis = amisRequire('amis/embed');

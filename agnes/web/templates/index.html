@@ -7,13 +7,13 @@
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <meta name="renderer" content="webkit">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    
+
     <!-- 使用 amis 6.x 正确的 SDK 包 -->
     <link rel="stylesheet" title="default" href="https://unpkg.com/amis@6.3.0/sdk/sdk.css">
     <link rel="stylesheet" href="https://unpkg.com/amis@6.3.0/sdk/helper.css">
     <link rel="stylesheet" href="https://unpkg.com/amis@6.3.0/sdk/iconfont.css">
     <script src="https://unpkg.com/amis@6.3.0/sdk/sdk.js"></script>
-    
+
     <style>
         html, body, .app-wrapper {
             height: 100%;
@@ -35,20 +35,20 @@
             if (chatWebSocket && chatWebSocket.readyState === WebSocket.OPEN) {
                 return chatWebSocket;
             }
-            
+
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             const wsUrl = `${protocol}//${window.location.host}/ws/chat`;
             chatWebSocket = new WebSocket(wsUrl);
-            
+
             chatWebSocket.onmessage = (event) => {
                 const data = JSON.parse(event.data);
                 chatMessageHandlers.forEach(handler => handler(data));
             };
-            
+
             chatWebSocket.onclose = () => {
                 chatWebSocket = null;
             };
-            
+
             return chatWebSocket;
         }
 
@@ -86,7 +86,7 @@
                         let url = options.url;
                         let method = options.method || 'GET';
                         let data = options.data;
-                        
+
                         return fetch(url, {
                             method: method,
                             body: data ? JSON.stringify(data) : undefined,
@@ -107,7 +107,7 @@
                 let amisModule = window.amis;
                 console.log('Initial window.amis:', window.amis);
                 console.log('window.amisRequire:', window.amisRequire);
-                
+
                 // Amis 6.x SDK 将导出放在 window.amis.default
                 if (window.amis && window.amis.default && !window.amis.embed) {
                     amisModule = window.amis.default;
@@ -128,7 +128,7 @@
                         console.warn('Failed to call amis factory:', e);
                     }
                 }
-                
+
                 // 从 window.amis.embed 开始找，然后是 default.embed
                 let embedFn = null;
                 if (window.amis && window.amis.embed) {
@@ -138,7 +138,7 @@
                 } else if (amisModule && amisModule.default && amisModule.default.embed) {
                     embedFn = amisModule.default.embed;
                 }
-                
+
                 if (embedFn) {
                     try {
                         embedFn('#root', amisApp, {

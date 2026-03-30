@@ -87,21 +87,21 @@
                         <option value="openvino">OpenVINO Direct</option>
                     </select>
                 </div>
-                
+
                 <!-- OpenVINO Server 信息提示 -->
                 <div class="info-box" id="ov-server-info" style="display: none;">
                     <strong>💡 OpenVINO Server 使用提示：</strong><br>
                     1. 先启动 OpenVINO Server: <code>python -m tests.ov_server --model ./qwen1.5b-ov</code><br>
                     2. 然后在此配置连接
                 </div>
-                
+
                 <!-- OpenVINO Direct 信息提示 -->
                 <div class="info-box" id="ov-direct-info" style="display: none;">
                     <strong>💡 OpenVINO Direct 使用提示：</strong><br>
                     1. 请先安装依赖：<code>uv sync --extra openvino</code><br>
                     2. 模型路径可以是本地路径或 Hugging Face 模型 ID
                 </div>
-                
+
                 <div class="form-group">
                     <label id="model-label">模型名称</label>
                     <input type="text" id="llm-model" placeholder="例如: llama2, gpt-3.5-turbo">
@@ -182,11 +182,11 @@
             const modelInput = document.getElementById('llm-model');
             const ovServerInfo = document.getElementById('ov-server-info');
             const ovDirectInfo = document.getElementById('ov-direct-info');
-            
+
             // 隐藏所有提示
             ovServerInfo.style.display = 'none';
             ovDirectInfo.style.display = 'none';
-            
+
             if (provider === 'ollama') {
                 baseUrlGroup.style.display = 'block';
                 apiKeyGroup.style.display = 'none';

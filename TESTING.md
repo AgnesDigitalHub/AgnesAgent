@@ -208,11 +208,11 @@ import asyncio
 async def test_async_tool():
     """测试异步工具"""
     server = MCPServer()
-    
+
     async def async_add(x: int, y: int) -> int:
         await asyncio.sleep(0.01)
         return x + y
-    
+
     server.register_tool("async_add", async_add)
     result = await server.call_tool("async_add", {"x": 10, "y": 20})
     assert result == 30
@@ -253,7 +253,7 @@ import pytest
 def test_missing_required_parameter():
     """测试缺少必需参数"""
     engine = SkillEngine()
-    
+
     yaml_content = """
 name: required_test
 description: 必需参数测试
@@ -280,16 +280,16 @@ import time
 def test_large_history():
     """测试大量消息处理"""
     history = ChatHistory(max_messages=1000)
-    
+
     start_time = time.time()
-    
+
     # 添加1000条消息
     for i in range(1000):
         history.add_user_message(f"消息{i}")
-    
+
     end_time = time.time()
     elapsed = end_time - start_time
-    
+
     # 验证性能
     assert elapsed < 1.0  # 应该在1秒内完成
     assert len(history) == 1000
@@ -420,10 +420,10 @@ def test_debug_example():
     """调试示例"""
     history = ChatHistory()
     history.add_user_message("测试")
-    
+
     # 设置断点
     import pdb; pdb.set_trace()
-    
+
     assert len(history) == 1
 ```
 

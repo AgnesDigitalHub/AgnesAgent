@@ -16,9 +16,7 @@ class TestConfigLoader(unittest.TestCase):
 
     def setUp(self):
         """测试前准备"""
-        self.test_config_path = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config.yaml"
-        )
+        self.test_config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config.yaml")
 
     def test_config_load(self):
         """测试配置加载"""

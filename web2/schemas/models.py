@@ -71,29 +71,24 @@ def get_models_schema():
                                         "description": "选择供应商类型",
                                     },
                                     {
-                                        "type": "input-text",
+                                        "type": "hidden",
                                         "name": "name",
-                                        "label": "配置名称",
-                                        "required": True,
-                                        "placeholder": "例如: My OpenAI",
+                                        "value": "${provider}",
                                     },
                                     {
-                                        "type": "input-text",
+                                        "type": "hidden",
                                         "name": "description",
-                                        "label": "描述",
-                                        "placeholder": "可选描述",
+                                        "value": "",
                                     },
                                     {
-                                        "type": "input-text",
+                                        "type": "hidden",
                                         "name": "base_url",
-                                        "label": "API Base URL",
-                                        "placeholder": "例如: https://api.openai.com/v1",
+                                        "value": "",
                                     },
                                     {
-                                        "type": "input-password",
+                                        "type": "hidden",
                                         "name": "api_key",
-                                        "label": "API Key",
-                                        "placeholder": "输入你的 API Key",
+                                        "value": "",
                                     },
                                     {
                                         "type": "hidden",
@@ -129,11 +124,9 @@ def get_models_schema():
                     },
                 ],
                 "card": {
-                    "title": "${name}",
-                    "subTitle": "${IF(provider == 'openai', 'OpenAI', provider == 'openai-compat', 'OpenAI 兼容', provider == 'deepseek', 'DeepSeek', provider == 'gemini', 'Google Gemini', provider == 'anthropic', 'Anthropic Claude', provider == 'ollama', 'Ollama', provider == 'openvino-server', 'OpenVINO Server', '其他 API')}",
                     "body": {
                         "type": "tpl",
-                        "tpl": '<div style="display: flex; flex-direction: column; gap: 4px;"><div style="color: #666; font-size: 13px; font-weight: 500;">模型: ${model || "未配置"}</div><div style="color: #999; font-size: 12px;">${description || "无描述"}</div><div style="display: flex; gap: 8px; margin-top: 8px;"><span style="${is_active ? "background: #4caf50; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px;" : "display: none;"}">激活中</span></div></div>',
+                        "tpl": '<div style="display: flex; flex-direction: column; gap: 4px;"><div style="color: #666; font-size: 13px; font-weight: 500;">供应商: ${provider}</div><div style="color: #666; font-size: 13px; font-weight: 500;">模型: ${model || "未配置"}</div><div style="color: #999; font-size: 12px;">${description || "无描述"}</div><div style="display: flex; gap: 8px; margin-top: 8px;"><span style="${is_active ? "background: #4caf50; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px;" : "display: none;"}">激活中</span></div></div>',
                     },
                     "actions": [
                         {

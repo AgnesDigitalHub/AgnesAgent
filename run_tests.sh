@@ -133,20 +133,20 @@ done
 # 检查uv是否安装
 check_uv() {
     print_info "检查uv..."
-    
+
     if ! command -v uv &> /dev/null; then
         print_error "uv未安装，请先安装uv"
         print_info "安装方法: curl -LsSf https://astral.sh/uv/install.sh | sh"
         exit 1
     fi
-    
+
     print_success "uv已就绪"
 }
 
 # 检查Python环境
 check_python() {
     print_info "检查Python环境..."
-    
+
     # 优先使用python3，其次使用python
     PYTHON_CMD=""
     if command -v python3 &> /dev/null; then
@@ -157,19 +157,19 @@ check_python() {
         print_error "Python未安装或不在PATH中"
         exit 1
     fi
-    
+
     print_success "找到Python命令: $PYTHON_CMD"
-    
+
     # 获取Python版本，处理可能的错误
     # 使用临时变量存储命令输出，避免set -e导致脚本退出
     PYTHON_VERSION_OUTPUT=$($PYTHON_CMD --version 2>&1) || true
-    
+
     if [[ -n "$PYTHON_VERSION_OUTPUT" ]]; then
         # 尝试解析版本号
         PYTHON_VERSION=$(echo "$PYTHON_VERSION_OUTPUT" | grep -oE '[0-9]+\.[0-9]+' | head -1)
         if [[ -n "$PYTHON_VERSION" ]]; then
             print_info "Python版本: $PYTHON_VERSION (使用命令: $PYTHON_CMD)"
-            
+
             if [[ "$PYTHON_VERSION" != "3.12" ]]; then
                 print_warning "推荐使用Python 3.12，当前版本: $PYTHON_VERSION"
             fi
@@ -186,7 +186,7 @@ check_python() {
 # 安装开发依赖
 install_dev_dependencies() {
     print_info "安装开发依赖..."
-    
+
     if uv sync --dev; then
         print_success "开发依赖安装完成"
     else
@@ -198,54 +198,54 @@ install_dev_dependencies() {
 # 清理测试缓存
 clean_cache() {
     print_info "清理测试缓存和报告..."
-    
+
     # 删除pytest缓存
     rm -rf .pytest_cache
     rm -rf __pycache__
     rm -rf tests/__pycache__
     rm -rf tests/*/__pycache__
-    
+
     # 删除覆盖率报告
     rm -rf htmlcov
     rm -f .coverage
     rm -f coverage.xml
-    
+
     # 删除测试报告
     rm -f test-results.xml
     rm -f test-report.html
-    
+
     print_success "清理完成"
 }
 
 # 构建pytest命令
 build_pytest_command() {
     CMD="uv run pytest"
-    
+
     # 添加详细输出
     if [[ "$VERBOSE" == true ]]; then
         CMD="$CMD -v"
     fi
-    
+
     # 添加慢速测试
     if [[ "$INCLUDE_SLOW" == true ]]; then
         CMD="$CMD -m slow"
     fi
-    
+
     # 添加覆盖率
     if [[ "$COVERAGE" == true ]]; then
         CMD="$CMD --cov=agnes --cov=web2 --cov-report=term-missing --cov-report=html:htmlcov --cov-report=xml:coverage.xml"
     fi
-    
+
     # 添加指定文件
     if [[ -n "$FILE" ]]; then
         CMD="$CMD $FILE"
     fi
-    
+
     # 添加关键词过滤
     if [[ -n "$KEYWORD" ]]; then
         CMD="$CMD -k $KEYWORD"
     fi
-    
+
     # 添加模块过滤
     if [[ -n "$MODULE" ]]; then
         case $MODULE in
@@ -274,22 +274,22 @@ build_pytest_command() {
                 ;;
         esac
     fi
-    
+
     # 添加单元测试标记
     if [[ "$RUN_UNIT" == true ]]; then
         CMD="$CMD -m 'not integration'"
     fi
-    
+
     # 添加集成测试标记
     if [[ "$RUN_INTEGRATION" == true ]]; then
         CMD="$CMD -m integration"
     fi
-    
+
     # 生成JUnit XML报告
     if [[ "$REPORT" == true ]]; then
         CMD="$CMD --junitxml=test-results.xml"
     fi
-    
+
     echo "$CMD"
 }
 
@@ -297,11 +297,11 @@ build_pytest_command() {
 run_tests() {
     print_info "开始运行测试..."
     print_info "========================================"
-    
+
     # 构建命令
     CMD=$(build_pytest_command)
     print_info "执行命令: $CMD"
-    
+
     # 运行测试
     if eval $CMD; then
         print_success "测试运行完成"
@@ -319,7 +319,7 @@ show_coverage_report() {
         print_info "  - 终端覆盖率报告: 见上方输出"
         print_info "  - HTML覆盖率报告: htmlcov/index.html"
         print_info "  - XML覆盖率报告: coverage.xml"
-        
+
         # 根据操作系统打开HTML报告
         if [[ -f "htmlcov/index.html" ]]; then
             print_info "正在打开HTML覆盖率报告..."
@@ -341,27 +341,27 @@ show_coverage_report() {
 main() {
     print_info "AgnesAgent 测试运行脚本"
     print_info "========================================"
-    
+
     # 清理缓存
     if [[ "$CLEAN" == true ]]; then
         clean_cache
         exit 0
     fi
-    
+
     # 检查环境
     check_uv
     check_python
-    
+
     # 安装开发依赖
     install_dev_dependencies
-    
+
     # 运行测试
     if run_tests; then
         print_success "所有测试通过!"
-        
+
         # 显示覆盖率报告
         show_coverage_report
-        
+
         exit 0
     else
         print_error "测试失败!"
