@@ -115,22 +115,39 @@ class YAMLSkill(BaseSkill):
                 "list": list,
                 "dict": dict,
                 "json": json,
+                "eval": eval,
+                "exec": exec,
             },
             "params": parameters,
         }
 
         # 执行代码
         try:
-            if "import" in self._definition.execution:
-                # 支持导入依赖
-                exec(self._definition.execution, env)
+            execution_code = self._definition.execution.strip()
+
+            # 判断是简单表达式还是复杂代码
+            # 如果包含换行符、import、赋值语句等，使用exec
+            is_complex = (
+                "\n" in execution_code
+                or "import" in execution_code
+                or "=" in execution_code
+                or execution_code.startswith("if ")
+                or execution_code.startswith("for ")
+                or execution_code.startswith("while ")
+                or execution_code.startswith("def ")
+                or execution_code.startswith("class ")
+            )
+
+            if is_complex:
+                # 复杂代码使用exec
+                exec(execution_code, env)
                 if "result" in env:
                     return SkillResult.ok(env["result"])
                 else:
                     return SkillResult.ok({"success": True})
             else:
-                # 简单表达式求值
-                result = eval(self._definition.execution, env)
+                # 简单表达式使用eval
+                result = eval(execution_code, env)
                 return SkillResult.ok(result)
         except Exception as e:
             return SkillResult.error("python_error", str(e))

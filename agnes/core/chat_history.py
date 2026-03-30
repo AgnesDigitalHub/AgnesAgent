@@ -88,9 +88,17 @@ class ChatHistory:
         system_messages = [msg for msg in self.messages if msg.role == "system"]
         other_messages = [msg for msg in self.messages if msg.role != "system"]
 
-        # 裁剪其他消息
-        if len(other_messages) > self.max_messages:
-            other_messages = other_messages[-self.max_messages :]
+        # 处理 max_messages=0 的情况
+        if self.max_messages == 0:
+            other_messages = []
+        # 裁剪其他消息，使得总消息数不超过 max_messages
+        elif len(system_messages) + len(other_messages) > self.max_messages:
+            # 计算需要保留的非系统消息数量
+            keep_other_count = self.max_messages - len(system_messages)
+            if keep_other_count > 0:
+                other_messages = other_messages[-keep_other_count:]
+            else:
+                other_messages = []
 
         self.messages = system_messages + other_messages
 

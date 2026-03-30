@@ -48,11 +48,11 @@ def get_models_schema():
     sel_model.name("model")
     sel_model.id("add_model")
 
-    # 隐藏的 base_url 字段（根据供应商自动填充）
+    # base_url 字段（隐藏，根据供应商自动填充）
     it4 = a.Hidden()
     it4.name("base_url")
 
-    # 隐藏的其他字段
+    # api_key 字段（隐藏）
     ipw = a.Hidden()
     ipw.name("api_key")
     ipw.value("")
@@ -76,25 +76,11 @@ def get_models_schema():
         {"success": "创建成功", "failed": "创建失败"}
     )
 
-    # 当供应商选择变化时，自动填充所有隐藏字段
+    # 生成唯一ID
     add_form.watch(
         "provider",
         {
             "actions": [
-                {
-                    "actionType": "setValue",
-                    "componentId": "add_base_url",
-                    "args": {
-                        "value": "${provider === 'openai' ? 'https://api.openai.com/v1' : provider === 'deepseek' ? 'https://api.deepseek.com' : provider === 'gemini' ? 'https://generativelanguage.googleapis.com/v1beta' : provider === 'anthropic' ? 'https://api.anthropic.com' : provider === 'ollama' ? 'http://localhost:11434/v1' : provider === 'openvino-server' ? 'http://localhost:8000/v1' : 'http://localhost:8000/v1'}"
-                    },
-                },
-                {
-                    "actionType": "setValue",
-                    "componentId": "add_model",
-                    "args": {
-                        "value": "${provider === 'openai' ? 'gpt-4o' : provider === 'deepseek' ? 'deepseek-chat' : provider === 'gemini' ? 'gemini-pro' : provider === 'anthropic' ? 'claude-3-sonnet-20240229' : provider === 'ollama' ? 'llama3' : ''}"
-                    },
-                },
                 {
                     "actionType": "ajax",
                     "args": {
@@ -141,10 +127,12 @@ def get_models_schema():
 
     # 基础配置 - 根据供应商自动填充
     eit4 = a.InputText()
-    eit4.name("base_url").label("API Base URL")
+    eit4.name("base_url").label("API Base URL").value("${base_url}").description("API服务器地址")
 
     eipw = a.InputPassword()
-    eipw.name("api_key").label("API Key").visibleOn("provider !== 'ollama' && provider !== 'openvino-server'")
+    eipw.name("api_key").label("API Key").value("${api_key}").description("API密钥（可选）").visibleOn(
+        "provider !== 'ollama' && provider !== 'openvino-server'"
+    )
 
     # 获取模型按钮（编辑模式）
     e_fetch_btn = a.Button()
@@ -163,26 +151,26 @@ def get_models_schema():
             "actions": [
                 {
                     "actionType": "setValue",
-                    "componentName": "edit_model_select",
-                    "args": {"options": "${event.data.models}"},
+                    "componentId": "edit_model_checkboxes",
+                    "args": {"value": "${event.data.models}"},
                 }
             ]
         },
     )
 
-    # 模型下拉选择框
-    e_sel_model = a.Select()
-    e_sel_model.name("model").label("选择模型").required(True).id("edit_model_select").clearable(True).placeholder(
-        "请先填写供应商信息并点击'获取可用模型'"
-    )
-    # 注意：不使用 source()，避免自动加载，只在点击按钮后才加载
+    # 模型多选列表（Checkboxes形式）
+    e_model_checkboxes = a.Checkboxes()
+    e_model_checkboxes.name("enabled_models").label("可用模型").id("edit_model_checkboxes")
+    e_model_checkboxes.description("选择要启用的模型，可多选")
+    e_model_checkboxes.inline(False)  # 垂直排列
+    e_model_checkboxes.columns(1)  # 单列显示
 
     # 高级参数
     einn1 = a.InputNumber()
     einn1.name("temperature").label("Temperature").min(0).max(2).step(0.1)
 
     einn2 = a.InputNumber()
-    einn2.name("max_tokens").label("Max Tokens")
+    einn2.name("max_tokens").label("Max Tokens").value(128).description("单位：K (1000 tokens)")
 
     # 分组编辑表单
     e_basic_group = a.Group()
@@ -200,7 +188,7 @@ def get_models_schema():
         [
             a.Html().html('<p style="color: #666; margin-bottom: 10px;">填写完成后点击按钮刷新模型列表</p>'),
             e_fetch_btn,
-            e_sel_model,
+            e_model_checkboxes,
         ]
     )
 
@@ -212,15 +200,6 @@ def get_models_schema():
     edit_form.api("put:/api/profiles/${id}")
     edit_form.initApi("get:/api/profiles/${id}")
     edit_form.body([e_basic_group, e_connection_group, e_model_group, e_advanced_group])
-
-    # 同样支持自动填充
-    edit_form.watch(
-        "provider",
-        {
-            "type": "setValue",
-            "value": "${provider === 'openai' ? 'https://api.openai.com/v1' : provider === 'deepseek' ? 'https://api.deepseek.com' : provider === 'gemini' ? 'https://generativelanguage.googleapis.com/v1beta' : provider === 'anthropic' ? 'https://api.anthropic.com' : provider === 'ollama' ? 'http://localhost:11434/v1' : provider === 'openvino-server' ? 'http://localhost:8000/v1' : ''}",
-        },
-    )
 
     edit_dialog = a.Dialog()
     edit_dialog.title("编辑配置")
