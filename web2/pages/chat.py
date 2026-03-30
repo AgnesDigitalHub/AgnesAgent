@@ -115,6 +115,17 @@ def show_chat():
                         import websockets
 
                         collected = []
+                        debug_lines = []
+
+                        def append_debug(line: str):
+                            debug_lines.append(line)
+                            debug_panel.set_content(
+                                ""
+                                + "\n".join(debug_lines[-50:])  # 最多保留最近50行
+                                + ""
+                            )
+
+                        append_debug(f">>> 发送: {message!r}")
                         try:
                             async with websockets.connect(WS_URL) as ws:
                                 await ws.send(json.dumps({"message": message, "use_history": True}))
@@ -124,16 +135,27 @@ def show_chat():
                                     t = data.get("type")
                                     if t == "start":
                                         agnes_label.set_text("")
+                                        append_debug("[start] 开始流式输出")
                                     elif t == "token":
-                                        collected.append(data.get("content", ""))
+                                        token_content = data.get("content", "")
+                                        collected.append(token_content)
                                         agnes_label.set_text("".join(collected))
+                                        append_debug(f"[token] {token_content!r}")
                                     elif t == "done":
+                                        append_debug(
+                                            f"[done] 完整回复 ({len(collected)} 个 token): {''.join(collected)[:200]!r}"
+                                        )
                                         break
                                     elif t == "error":
-                                        agnes_label.set_text(f"[错误] {data.get('message', '未知错误')}")
+                                        err_msg = data.get("message", "未知错误")
+                                        agnes_label.set_text(f"[错误] {err_msg}")
+                                        append_debug(f"[error] {err_msg}")
                                         break
+                                    else:
+                                        append_debug(f"[unknown] {data}")
                         except Exception as e:
                             agnes_label.set_text(f"[连接失败] {e}\n\n请检查服务是否已启动，并已激活模型。")
+                            append_debug(f"[exception] {e}")
 
                     ui.timer(0.05, do_ws_chat, once=True)
 
@@ -152,7 +174,19 @@ def show_chat():
 
         # Refresh model info button
         ui.button(
-            "刷���模型状态",
+            "刷新模型状态",
             icon="refresh",
             on_click=refresh_model_info,
         ).props("flat size=sm").classes("text-gray-500 mt-2")
+
+        # ── Debug panel (fixed bottom) ───────────────────────────
+        debug_panel = (
+            ui.markdown("")
+            .classes("w-full")
+            .style(
+                "position:fixed; bottom:0; left:220px; right:0; z-index:9999;"
+                "background:#1a1a2e; color:#00ff88; font-family:monospace; font-size:12px;"
+                "padding:8px 16px; max-height:200px; overflow-y:auto;"
+                "border-top:2px solid #00ff88; white-space:pre-wrap;"
+            )
+        )

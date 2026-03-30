@@ -1,5 +1,5 @@
 """
-系统设置页面 Schema（开发中）
+系统设置页面 Schema
 """
 
 
@@ -10,18 +10,41 @@ def get_settings_schema():
         "title": "系统设置",
         "body": [
             {
-                "type": "alert",
-                "level": "warning",
-                "body": "🚧 此功能正在开发中，敬请期待...",
-            },
-            {
-                "type": "card",
-                "title": "系统设置",
+                "type": "service",
+                "api": {
+                    "method": "get",
+                    "url": "/api/profiles",
+                },
                 "body": [
                     {
-                        "type": "tpl",
-                        "tpl": "<div class='text-center py-8'><div class='text-6xl mb-4'>⚙️</div><div class='text-xl text-gray-500'>系统设置功能即将上线</div><div class='text-gray-400 mt-2'>配置全局参数和系统选项</div></div>",
-                    }
+                        "type": "card",
+                        "title": "全局设置",
+                        "body": [
+                            {
+                                "type": "form",
+                                "initApi": {
+                                    "method": "get",
+                                    "url": "/api/settings/llm",
+                                },
+                                "api": {
+                                    "method": "put",
+                                    "url": "/api/settings/llm",
+                                },
+                                "messages": {"success": "保存成功", "failed": "保存失败"},
+                                "body": [
+                                    {
+                                        "type": "select",
+                                        "name": "default_profile_id",
+                                        "label": "默认 LLM 模型",
+                                        "description": "选择系统默认使用的模型配置",
+                                        "required": False,
+                                        "clearable": True,
+                                        "options": "${profiles.map(p => ({label: p.name + ' (' + p.provider + ')', value: p.id}))}",
+                                    },
+                                ],
+                            },
+                        ],
+                    },
                 ],
             },
         ],

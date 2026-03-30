@@ -24,6 +24,7 @@ class LLMProfile:
     api_key: str | None = None
     temperature: float = 0.7
     max_tokens: int | None = None
+    enabled_models: list[str] | None = None
     is_active: bool = False
     created_at: str = ""
     updated_at: str = ""
@@ -95,6 +96,7 @@ class ProfileStore:
         api_key: str | None = None,
         temperature: float = 0.7,
         max_tokens: int | None = None,
+        enabled_models: list[str] | None = None,
     ) -> LLMProfile:
         """创建新配置"""
         now = datetime.now().isoformat()
@@ -108,6 +110,7 @@ class ProfileStore:
             api_key=api_key,
             temperature=temperature,
             max_tokens=max_tokens,
+            enabled_models=enabled_models,
             is_active=False,
             created_at=now,
             updated_at=now,
@@ -203,6 +206,19 @@ class ProfileStore:
         """获取当前激活的 ID"""
         data = self._read_file()
         return data.get("active_id")
+
+    def deactivate_profile(self) -> None:
+        """取消激活当前配置"""
+        data = self._read_file()
+        profiles = data.get("profiles", [])
+
+        # 取消所有配置的激活状态
+        for p_data in profiles:
+            p_data["is_active"] = False
+
+        data["active_id"] = None
+        data["profiles"] = profiles
+        self._write_file(data)
 
 
 # ============ Agent 模型 ============

@@ -563,9 +563,9 @@ async def main():
                 from agnes.web_server import start_web_server
 
                 await start_web_server(agent, args.host, args.port)
-            except ImportError:
-                print("Web dependencies not installed!")
-                print("Please install with: pip install -e .[web]")
+            except ImportError as e:
+                print(f"Web 模块导入失败: {e}")
+                print("请使用 'uv sync' 或 'pip install -e .' 安装所有依赖")
                 return
         elif args.web2 or not any([args.chat, args.web, args.no_server]):
             # 启动 Web2 Amis SPA 控制台（默认行为）

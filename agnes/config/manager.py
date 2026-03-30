@@ -27,6 +27,7 @@ class LLMProfile:
     api_key: str | None = None
     temperature: float = 0.7
     max_tokens: int | None = None
+    enabled_models: list[str] | None = None
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -43,6 +44,7 @@ class LLMProfile:
             "api_key": self.api_key,
             "temperature": self.temperature,
             "max_tokens": self.max_tokens,
+            "enabled_models": self.enabled_models,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
             "metadata": self.metadata,
@@ -61,6 +63,7 @@ class LLMProfile:
             api_key=data.get("api_key"),
             temperature=data.get("temperature", 0.7),
             max_tokens=data.get("max_tokens"),
+            enabled_models=data.get("enabled_models"),
             created_at=data.get("created_at", time.time()),
             updated_at=data.get("updated_at", time.time()),
             metadata=data.get("metadata", {}),
@@ -106,14 +109,15 @@ class ConfigManager:
 
     def create_profile(
         self,
-        name: str,
-        provider: str,
-        model: str,
+        name: str | None = None,
+        provider: str = "ollama",
+        model: str | None = None,
         description: str = "",
         base_url: str | None = None,
         api_key: str | None = None,
         temperature: float = 0.7,
         max_tokens: int | None = None,
+        enabled_models: list[str] | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> LLMProfile:
         """
@@ -128,11 +132,31 @@ class ConfigManager:
             api_key: API Key
             temperature: 温度
             max_tokens: 最大 token 数
+            enabled_models: 可用模型列表
             metadata: 额外元数据
 
         Returns:
             创建的配置文件
         """
+        # 如果没有提供name，根据provider自动生成
+        if not name:
+            name = f"{provider}-{uuid4().hex[:8]}"
+
+        # 默认模型
+        if not model:
+            default_models = {
+                "openai": "gpt-4o",
+                "deepseek": "deepseek-chat",
+                "gemini": "gemini-pro",
+                "anthropic": "claude-3-sonnet-20240229",
+                "ollama": "llama3",
+                "openvino-server": "",
+                "openai-compat": "",
+                "local-api": "",
+                "generic": "",
+            }
+            model = default_models.get(provider, "")
+
         profile = LLMProfile(
             id=str(uuid4()),
             name=name,
@@ -143,6 +167,7 @@ class ConfigManager:
             api_key=api_key,
             temperature=temperature,
             max_tokens=max_tokens,
+            enabled_models=enabled_models,
             metadata=metadata or {},
         )
 

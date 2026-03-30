@@ -19,21 +19,19 @@ from pydantic import BaseModel
 from agnes import ChatHistory, get_logger
 from agnes.core.llm_provider import LLMResponse
 
-# Import python-amis schemas
-from web2.schemas import (
-    get_agents_schema,
-    get_chat_schema,
-    get_dashboard_schema,
-    get_knowledge_schema,
-    get_logs_schema,
-    get_models_schema,
-    get_prompts_schema,
-    get_publish_schema,
-    get_settings_schema,
-    get_tools_schema,
-    get_users_schema,
-    get_workflows_schema,
-)
+# Import python-amis schemas - 动态导入避免循环依赖
+from web2.schemas.agents import get_agents_schema
+from web2.schemas.chat import get_chat_schema
+from web2.schemas.dashboard import get_dashboard_schema
+from web2.schemas.knowledge import get_knowledge_schema
+from web2.schemas.logs import get_logs_schema
+from web2.schemas.models import get_models_schema
+from web2.schemas.prompts import get_prompts_schema
+from web2.schemas.publish import get_publish_schema
+from web2.schemas.settings import get_settings_schema
+from web2.schemas.tools import get_tools_schema
+from web2.schemas.users import get_users_schema
+from web2.schemas.workflows import get_workflows_schema
 
 
 def build_amis_app():

@@ -82,7 +82,7 @@ class AgnesServer:
         """
         服务启动时自动从持久化配置恢复 LLM Provider。
         优先顺序：
-        1. config/settings/llm.json（SettingsStorage）
+        1. config/settings/llm.json 中的 default_profile_id（全局设置）
         2. 上次激活的 LLM Profile（从 .active 文件读取）
         3. 最近更新的 LLM Profile（兜底）
         """
@@ -105,25 +105,29 @@ class AgnesServer:
                 max_tokens=max_tokens,
             )
 
-        # 1. 尝试从 settings/llm.json 恢复
+        # 1. 尝试从 settings/llm.json 的 default_profile_id 恢复
         try:
             llm_data = self.settings_storage.load_section("llm")
-            provider = llm_data.get("provider", "")
-            model = llm_data.get("model", "")
-            if provider and model:
-                llm_config = _build_llm_config(
-                    provider=provider,
-                    model=model,
-                    base_url=llm_data.get("base_url"),
-                    api_key=llm_data.get("api_key"),
-                    temperature=llm_data.get("temperature", 0.7),
-                    max_tokens=llm_data.get("max_tokens"),
-                )
-                await self.agent.setup_llm(llm_config, display_provider=provider)
-                logger.info(f"Auto-restored LLM from settings/llm.json: {provider}/{model}")
-                return
+            default_profile_id = llm_data.get("default_profile_id")
+            if default_profile_id:
+                profile = self.config_manager.get_profile(default_profile_id)
+                if profile:
+                    llm_config = _build_llm_config(
+                        provider=profile.provider,
+                        model=profile.model,
+                        base_url=profile.base_url,
+                        api_key=profile.api_key,
+                        temperature=profile.temperature,
+                        max_tokens=profile.max_tokens,
+                    )
+                    await self.agent.setup_llm(llm_config, display_provider=profile.provider)
+                    self.config_manager.activate_profile(profile.id)
+                    logger.info(
+                        f"Auto-restored LLM from default profile (settings): {profile.name} ({profile.provider}/{profile.model})"
+                    )
+                    return
         except Exception as e:
-            logger.warning(f"Failed to restore LLM from settings/llm.json: {e}")
+            logger.warning(f"Failed to restore LLM from default profile (settings): {e}")
 
         # 2. 尝试从上次激活的 Profile 恢复（.active 文件）
         # 3. 兜底：最近更新的第一个 Profile
@@ -169,6 +173,7 @@ class AgnesServer:
             created_at=profile.created_at,
             updated_at=profile.updated_at,
             is_active=is_active,
+            enabled_models=profile.enabled_models,
         )
 
     def _setup_routes(self):
@@ -385,6 +390,122 @@ class AgnesServer:
                 raise HTTPException(status_code=404, detail="Profile not found")
             return self._profile_to_response(profile)
 
+        @self.app.post("/api/profiles/generate-id")
+        async def generate_id(request: dict):
+            """生成唯一ID和默认配置"""
+            provider = request.get("provider", "generic")
+
+            # 默认base_url
+            default_base_urls = {
+                "openai": "https://api.openai.com/v1",
+                "deepseek": "https://api.deepseek.com",
+                "gemini": "https://generativelanguage.googleapis.com/v1beta",
+                "anthropic": "https://api.anthropic.com",
+                "ollama": "http://localhost:11434/v1",
+                "openvino-server": "http://localhost:8000/v1",
+                "openai-compat": "http://localhost:8000/v1",
+                "local-api": "http://localhost:8000/v1",
+                "generic": "http://localhost:8000/v1",
+            }
+
+            # 默认模型
+            default_models = {
+                "openai": "gpt-4o",
+                "deepseek": "deepseek-chat",
+                "gemini": "gemini-pro",
+                "anthropic": "claude-3-sonnet-20240229",
+                "ollama": "llama3",
+                "openvino-server": "",
+                "openai-compat": "",
+                "local-api": "",
+                "generic": "",
+            }
+
+            # 生成ID
+            random_suffix = uuid4().hex[:8]
+            generated_id = f"{provider}-{random_suffix}"
+
+            return {
+                "id": generated_id,
+                "base_url": default_base_urls.get(provider, "http://localhost:8000/v1"),
+                "default_model": default_models.get(provider, ""),
+            }
+
+        @self.app.post("/api/profiles/fetch-models")
+        async def fetch_models(request: dict):
+            """获取可用模型列表"""
+            provider = request.get("provider", "openai")
+            base_url = request.get("base_url")
+            api_key = request.get("api_key")
+
+            models = []
+
+            try:
+                if provider == "ollama":
+                    # Ollama: 调用 /api/tags 接口
+                    import httpx
+
+                    ollama_url = base_url or "http://localhost:11434"
+                    if ollama_url.endswith("/v1"):
+                        ollama_url = ollama_url[:-3]
+                    async with httpx.AsyncClient(timeout=10.0) as client:
+                        resp = await client.get(f"{ollama_url}/api/tags")
+                        if resp.status_code == 200:
+                            data = resp.json()
+                            models = [
+                                {"label": m.get("name", m.get("model")), "value": m.get("name", m.get("model"))}
+                                for m in data.get("models", [])
+                            ]
+                elif provider in ["openai", "openai-compat", "openvino-server", "local-api", "generic", "deepseek"]:
+                    # OpenAI兼容API: 调用 /v1/models 接口
+                    import httpx
+
+                    url = base_url or "https://api.openai.com/v1"
+                    if not url.endswith("/v1"):
+                        url = f"{url}/v1"
+                    headers = {}
+                    if api_key:
+                        headers["Authorization"] = f"Bearer {api_key}"
+                    async with httpx.AsyncClient(timeout=10.0) as client:
+                        resp = await client.get(f"{url}/models", headers=headers)
+                        if resp.status_code == 200:
+                            data = resp.json()
+                            models = [{"label": m.get("id"), "value": m.get("id")} for m in data.get("data", [])]
+            except Exception as e:
+                logger.warning(f"Failed to fetch models: {e}")
+                # 提供默认模型列表（包括空值选项）
+                default_model_options = {
+                    "openai": [
+                        {"label": "gpt-4o", "value": "gpt-4o"},
+                        {"label": "gpt-4o-mini", "value": "gpt-4o-mini"},
+                        {"label": "gpt-4-turbo", "value": "gpt-4-turbo"},
+                        {"label": "gpt-3.5-turbo", "value": "gpt-3.5-turbo"},
+                    ],
+                    "deepseek": [
+                        {"label": "deepseek-chat", "value": "deepseek-chat"},
+                        {"label": "deepseek-coder", "value": "deepseek-coder"},
+                    ],
+                    "anthropic": [
+                        {"label": "claude-3-opus-20240229", "value": "claude-3-opus-20240229"},
+                        {"label": "claude-3-sonnet-20240229", "value": "claude-3-sonnet-20240229"},
+                        {"label": "claude-3-haiku-20240307", "value": "claude-3-haiku-20240307"},
+                    ],
+                    "gemini": [
+                        {"label": "gemini-pro", "value": "gemini-pro"},
+                        {"label": "gemini-1.5-pro", "value": "gemini-1.5-pro"},
+                        {"label": "gemini-1.5-flash", "value": "gemini-1.5-flash"},
+                    ],
+                    "ollama": [
+                        {"label": "llama3", "value": "llama3"},
+                        {"label": "llama2", "value": "llama2"},
+                        {"label": "mistral", "value": "mistral"},
+                        {"label": "phi3", "value": "phi3"},
+                    ],
+                }
+                models = default_model_options.get(provider, [])
+
+            return {"models": models}
+
         @self.app.post("/api/profiles", response_model=ProfileResponse)
         async def create_profile(request: CreateProfileRequest):
             """创建新配置"""
@@ -397,6 +518,7 @@ class AgnesServer:
                 api_key=request.api_key,
                 temperature=request.temperature,
                 max_tokens=request.max_tokens,
+                enabled_models=request.enabled_models,
             )
             return self._profile_to_response(profile)
 
@@ -453,6 +575,17 @@ class AgnesServer:
             except Exception as e:
                 logger.error(f"Failed to activate profile: {e}")
                 raise HTTPException(status_code=500, detail=str(e))
+
+        @self.app.post("/api/profiles/deactivate", response_model=SuccessResponse)
+        async def deactivate_profile():
+            """取消激活当前配置"""
+            self.config_manager._active_profile_id = None
+            self.config_manager._save_active_id(None)
+            # 保存到 settings 中
+            llm_settings = self.settings_storage.load_section("llm")
+            llm_settings["active_profile_id"] = None
+            self.settings_storage.save_section("llm", llm_settings)
+            return SuccessResponse(message="Profile deactivated")
 
         # ============================================
         # 系统设置 API

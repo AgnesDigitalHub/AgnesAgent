@@ -99,14 +99,25 @@ class ModelListResponse(BaseModel):
 class CreateProfileRequest(BaseModel):
     """创建配置请求"""
 
-    name: str
+    name: str | None = None
     description: str = ""
-    provider: Literal["ollama", "openai", "openvino-server", "local-api"]
-    model: str
+    provider: Literal[
+        "ollama",
+        "openai",
+        "openai-compat",
+        "deepseek",
+        "gemini",
+        "anthropic",
+        "openvino-server",
+        "local-api",
+        "generic",
+    ]
+    model: str | None = None
     base_url: str | None = None
     api_key: str | None = None
     temperature: float = 0.7
     max_tokens: int | None = None
+    enabled_models: list[str] | None = None
 
 
 class UpdateProfileRequest(BaseModel):
@@ -114,12 +125,26 @@ class UpdateProfileRequest(BaseModel):
 
     name: str | None = None
     description: str | None = None
-    provider: Literal["ollama", "openai", "openvino-server", "local-api"] | None = None
+    provider: (
+        Literal[
+            "ollama",
+            "openai",
+            "openai-compat",
+            "deepseek",
+            "gemini",
+            "anthropic",
+            "openvino-server",
+            "local-api",
+            "generic",
+        ]
+        | None
+    ) = None
     model: str | None = None
     base_url: str | None = None
     api_key: str | None = None
     temperature: float | None = None
     max_tokens: int | None = None
+    enabled_models: list[str] | None = None
 
 
 class ProfileResponse(BaseModel):
@@ -136,6 +161,7 @@ class ProfileResponse(BaseModel):
     created_at: float
     updated_at: float
     is_active: bool = False
+    enabled_models: list[str] | None = None
 
 
 class ProfileListResponse(BaseModel):
