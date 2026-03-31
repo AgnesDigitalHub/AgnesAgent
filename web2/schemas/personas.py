@@ -85,6 +85,59 @@ def get_personas_schema():
     add_btn.type("button").label("新建 Agent").level("primary")
     add_btn.actionType("dialog").dialog(add_dialog)
 
+    # Template button - 从模板创建 (使用多个预设按钮)
+    template_general_btn = a.Button()
+    template_general_btn.type("button").label("通用助手").level("light").size("sm")
+    template_general_btn.actionType("dialog").dialog(
+        a.Dialog().title("创建通用助手").body(
+            a.Form().api("post:/api/personas").body([
+                a.InputText().name("full_name").label("全名").value("通用助手").required(True),
+                a.InputText().name("nickname").label("昵称").value("小通"),
+                a.InputText().name("role").label("角色").value("通用AI助手"),
+                a.Textarea().name("personality").label("性格描述").value("友好、耐心、乐于助人，能够处理各种日常问题"),
+                a.Textarea().name("scenario").label("场景设定").value("适用于各种通用场景，提供信息查询、建议和帮助"),
+                a.Textarea().name("system_prompt").label("系统提示词").value("你是一个通用AI助手，名叫小通。你的任务是帮助用户解决各种问题，提供准确、有用的信息。请保持友好、耐心的态度，用简洁明了的语言回答问题。").required(True),
+                a.InputText().name("description").label("描述").value("一个全能型AI助手，适合日常使用"),
+            ])
+        )
+    )
+
+    template_code_btn = a.Button()
+    template_code_btn.type("button").label("代码专家").level("light").size("sm")
+    template_code_btn.actionType("dialog").dialog(
+        a.Dialog().title("创建代码专家").body(
+            a.Form().api("post:/api/personas").body([
+                a.InputText().name("full_name").label("全名").value("代码专家").required(True),
+                a.InputText().name("nickname").label("昵称").value("码神"),
+                a.InputText().name("role").label("角色").value("高级软件工程师"),
+                a.Textarea().name("personality").label("性格描述").value("严谨、专业、注重细节，热爱技术"),
+                a.Textarea().name("scenario").label("场景设定").value("专注于代码开发、调试、架构设计等技术问题"),
+                a.Textarea().name("system_prompt").label("系统提示词").value("你是一个资深的代码专家，名叫码神。你精通多种编程语言和开发框架，能够帮助用户编写高质量的代码、调试问题、优化性能。请提供清晰的代码示例和详细的技术解释。").required(True),
+                a.InputText().name("description").label("描述").value("专业的编程助手，适合开发者使用"),
+            ])
+        )
+    )
+
+    template_writing_btn = a.Button()
+    template_writing_btn.type("button").label("写作助手").level("light").size("sm")
+    template_writing_btn.actionType("dialog").dialog(
+        a.Dialog().title("创建写作助手").body(
+            a.Form().api("post:/api/personas").body([
+                a.InputText().name("full_name").label("全名").value("写作助手").required(True),
+                a.InputText().name("nickname").label("昵称").value("文笔"),
+                a.InputText().name("role").label("角色").value("专业写作顾问"),
+                a.Textarea().name("personality").label("性格描述").value("富有创意、文采斐然、善于表达"),
+                a.Textarea().name("scenario").label("场景设定").value("专注于文章写作、文案创作、内容优化"),
+                a.Textarea().name("system_prompt").label("系统提示词").value("你是一个专业的写作助手，名叫文笔。你擅长各种文体的写作，包括文章、文案、报告等。请帮助用户提升文字表达能力，提供写作建议和修改意见。").required(True),
+                a.InputText().name("description").label("描述").value("专业的写作助手，提升文字质量"),
+            ])
+        )
+    )
+
+    template_btn_group = a.Group()
+    template_btn_group.label("从模板创建")
+    template_btn_group.buttons([template_general_btn, template_code_btn, template_writing_btn])
+
     # Edit dialog
     eit1 = a.InputText()
     eit1.name("full_name").label("全名").required(True)
@@ -180,7 +233,7 @@ def get_personas_schema():
         }
     )
     crud.perPage(12)
-    crud.headerToolbar(["reload", add_btn])
+    crud.headerToolbar(["reload", add_btn, template_btn_group])
     crud.mode("cards")
     crud.card(
         a.Card()

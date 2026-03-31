@@ -1,0 +1,101 @@
+[
+  {
+    "id": "github",
+    "name": "GitHub",
+    "icon": "🐙",
+    "description": "GitHub API 集成，管理仓库、Issue、PR 等",
+    "category": "开发工具",
+    "install_command": "npx",
+    "install_args": ["-y", "@modelcontextprotocol/server-github"],
+    "needs_token": true,
+    "token_name": "GITHUB_PERSONAL_ACCESS_TOKEN",
+    "token_help": "在 GitHub Settings > Developer settings > Personal access tokens 创建",
+    "tools": ["create_repo", "search_repos", "create_issue", "create_pr"]
+  },
+  {
+    "id": "filesystem",
+    "name": "Filesystem",
+    "icon": "📁",
+    "description": "本地文件系统操作，读写文件、目录管理",
+    "category": "文件操作",
+    "install_command": "npx",
+    "install_args": ["-y", "@modelcontextprotocol/server-filesystem"],
+    "needs_token": false,
+    "needs_path": true,
+    "path_name": "允许访问的目录路径",
+    "path_help": "例如: /home/user/documents",
+    "tools": ["read_file", "write_file", "list_directory", "create_directory"]
+  },
+  {
+    "id": "fetch",
+    "name": "Fetch",
+    "icon": "🌐",
+    "description": "网页内容抓取，支持 HTML、JSON、Markdown",
+    "category": "网络工具",
+    "install_command": "npx",
+    "install_args": ["-y", "@modelcontextprotocol/server-fetch"],
+    "needs_token": false,
+    "tools": ["fetch_url", "fetch_html", "fetch_json"]
+  },
+  {
+    "id": "brave-search",
+    "name": "Brave Search",
+    "icon": "🔍",
+    "description": "Brave 搜索引擎 API，网页搜索",
+    "category": "搜索工具",
+    "install_command": "npx",
+    "install_args": ["-y", "@modelcontextprotocol/server-brave-search"],
+    "needs_token": true,
+    "token_name": "BRAVE_API_KEY",
+    "token_help": "在 https://brave.com/search/api/ 申请免费 API Key",
+    "tools": ["brave_web_search", "brave_local_search"]
+  },
+  {
+    "id": "postgres",
+    "name": "PostgreSQL",
+    "icon": "🐘",
+    "description": "PostgreSQL 数据库操作，SQL 查询",
+    "category": "数据库",
+    "install_command": "npx",
+    "install_args": ["-y", "@modelcontextprotocol/server-postgres"],
+    "needs_token": true,
+    "token_name": "DATABASE_URL",
+    "token_help": "PostgreSQL 连接字符串，例如: postgresql://user:pass@host:5432/db",
+    "tools": ["query", "execute"]
+  },
+  {
+    "id": "puppeteer",
+    "name": "Puppeteer",
+    "icon": "🎭",
+    "description": "浏览器自动化，网页截图、表单填写",
+    "category": "自动化",
+    "install_command": "npx",
+    "install_args": ["-y", "@modelcontextprotocol/server-puppeteer"],
+    "needs_token": false,
+    "tools": ["navigate", "screenshot", "click", "fill"]
+  },
+  {
+    "id": "slack",
+    "name": "Slack",
+    "icon": "💬",
+    "description": "Slack 消息发送、频道管理",
+    "category": "通讯工具",
+    "install_command": "npx",
+    "install_args": ["-y", "@modelcontextprotocol/server-slack"],
+    "needs_token": true,
+    "token_name": "SLACK_BOT_TOKEN",
+    "token_help": "在 Slack API 创建 App 并获取 Bot Token",
+    "tools": ["send_message", "list_channels", "get_history"]
+  },
+  {
+    "id": "memory",
+    "name": "Memory",
+    "icon": "🧠",
+    "description": "知识图谱存储，持久化记忆",
+    "category": "AI 工具",
+    "install_command": "npx",
+    "install_args": ["-y", "@modelcontextprotocol/server-memory"],
+    "needs_token": false,
+    "tools": ["create_entities", "search_nodes", "read_graph"]
+  }
+]

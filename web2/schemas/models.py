@@ -11,10 +11,12 @@ def get_models_schema():
         {"label": "OpenAI", "value": "openai"},
         {"label": "OpenAI 兼容（Azure / 第三方代理）", "value": "openai-compat"},
         {"label": "DeepSeek", "value": "deepseek"},
+        {"label": "NVIDIA", "value": "nvidia"},
+        {"label": "SiliconFlow", "value": "siliconflow"},
+        {"label": "Minimax", "value": "minimax"},
         {"label": "Google Gemini", "value": "gemini"},
         {"label": "Anthropic Claude", "value": "anthropic"},
         {"label": "Ollama", "value": "ollama"},
-        {"label": "OpenVINO Server", "value": "openvino-server"},
         {"label": "其他（通用 API）", "value": "generic"},
     ]
 
@@ -113,7 +115,14 @@ def get_models_schema():
                                                 "actionType": "setValue",
                                                 "componentId": "add_base_url",
                                                 "args": {
-                                                    "value": "${IF(provider == 'openai', 'https://api.openai.com/v1', provider == 'deepseek', 'https://api.deepseek.com', provider == 'gemini', 'https://generativelanguage.googleapis.com/v1beta', provider == 'anthropic', 'https://api.anthropic.com', provider == 'ollama', 'http://localhost:11434/v1', provider == 'openvino-server', 'http://localhost:8000/v1', '')}"
+                                                    "value": "${IF(provider == 'openai', 'https://api.openai.com/v1', provider == 'deepseek', 'https://api.deepseek.com', provider == 'nvidia', 'https://integrate.api.nvidia.com/v1', provider == 'siliconflow', 'https://api.siliconflow.cn/v1', provider == 'minimax', 'https://api.minimax.chat/v1', provider == 'gemini', 'https://generativelanguage.googleapis.com/v1beta', provider == 'anthropic', 'https://api.anthropic.com', provider == 'ollama', 'http://localhost:11434/v1', '')}"
+                                                },
+                                            },
+                                            {
+                                                "actionType": "setValue",
+                                                "componentId": "add_model",
+                                                "args": {
+                                                    "value": "${IF(provider == 'openai', 'gpt-4o', provider == 'deepseek', 'deepseek-chat', provider == 'nvidia', 'meta/llama-3.1-405b-instruct', provider == 'siliconflow', 'Qwen/Qwen2.5-7B-Instruct', provider == 'minimax', 'abab6.5-chat', provider == 'gemini', 'gemini-pro', provider == 'anthropic', 'claude-3-sonnet-20240229', provider == 'ollama', 'llama3', '')}"
                                                 },
                                             },
                                         ]
@@ -168,7 +177,7 @@ def get_models_schema():
                                             "label": "API Base URL",
                                         },
                                         {
-                                            "type": "input-password",
+                                            "type": "input-text",
                                             "name": "api_key",
                                             "label": "API Key",
                                         },
@@ -292,11 +301,11 @@ def get_models_schema():
                                                 "description": "API 服务器地址",
                                             },
                                             {
-                                                "type": "input-password",
+                                                "type": "input-text",
                                                 "name": "api_key",
                                                 "label": "API Key",
                                                 "description": "API 密钥（可选）",
-                                                "visibleOn": "provider !== 'ollama' && provider !== 'openvino-server'",
+                                                "visibleOn": "provider !== 'ollama'",
                                             },
                                         ],
                                     },

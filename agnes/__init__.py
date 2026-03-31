@@ -14,7 +14,6 @@ from .providers import (
     OllamaProvider,
     OpenAIProvider,
     OpenAIWhisperProvider,
-    OpenVINOProvider,
 )
 from .utils import VAD, AudioRecorder, AudioUtils, ConfigLoader, get_logger
 
@@ -30,7 +29,6 @@ __all__ = [
     "PromptTemplate",
     "OllamaProvider",
     "OpenAIProvider",
-    "OpenVINOProvider",
     "LocalWhisperProvider",
     "OpenAIWhisperProvider",
     "AudioRecorder",

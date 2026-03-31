@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, UploadFile, File
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 
@@ -20,7 +20,7 @@ root_dir = web2_dir.parent
 sys.path.insert(0, str(root_dir))
 
 from agnes.core import LLMProvider
-from agnes.providers import OllamaProvider, OpenAIProvider, OpenVINOProvider
+from agnes.providers import OllamaProvider, OpenAIProvider
 from agnes.skills import SkillResult, registry
 from web2.app_config import get_app_config, get_built_amis_app
 from web2.models import ProfileStore
@@ -114,9 +114,11 @@ def create_llm_provider(config) -> LLMProvider:
         "openai",
         "openai-compat",
         "deepseek",
+        "nvidia",
+        "siliconflow",
+        "minimax",
         "gemini",
         "anthropic",
-        "openvino-server",
         "local-api",
         "generic",
     }
@@ -128,26 +130,24 @@ def create_llm_provider(config) -> LLMProvider:
         )
     elif provider_type in openai_compatible_providers:
         # 默认 API Key 处理：本地服务一般不需要 key
-        default_api_key = "dummy-key" if provider_type in ["ollama", "openvino-server", "generic"] else ""
+        default_api_key = "dummy-key" if provider_type in ["ollama", "generic"] else ""
 
         # 默认 Base URL
         default_base_url = {
             "openai": "https://api.openai.com/v1",
             "deepseek": "https://api.deepseek.com",
+            "nvidia": "https://integrate.api.nvidia.com/v1",
+            "siliconflow": "https://api.siliconflow.cn/v1",
+            "minimax": "https://api.minimax.chat/v1",
             "gemini": "https://generativelanguage.googleapis.com/v1beta",
             "anthropic": "https://api.anthropic.com",
             "ollama": "http://localhost:11434",
-            "openvino-server": "http://localhost:8000/v1",
         }.get(provider_type, "http://localhost:8000/v1")
 
         return OpenAIProvider(
             api_key=config.api_key or default_api_key,
             base_url=config.base_url or default_base_url,
             model=config.model,
-        )
-    elif provider_type == "openvino":
-        return OpenVINOProvider(
-            model_name_or_path=config.model,
         )
     else:
         raise ValueError(f"不支持的 provider: {provider_type}")
@@ -788,10 +788,12 @@ def register_api_routes(app: FastAPI, api_prefix: str = "/api"):
             default_base_url = {
                 "openai": "https://api.openai.com/v1",
                 "deepseek": "https://api.deepseek.com",
+                "nvidia": "https://integrate.api.nvidia.com/v1",
+                "siliconflow": "https://api.siliconflow.cn/v1",
+                "minimax": "https://api.minimax.chat/v1",
                 "gemini": "https://generativelanguage.googleapis.com/v1beta",
                 "anthropic": "https://api.anthropic.com",
                 "ollama": "http://localhost:11434",
-                "openvino-server": "http://localhost:8000/v1",
             }.get(provider)
             base_url = default_base_url
 
@@ -1112,6 +1114,149 @@ def register_api_routes(app: FastAPI, api_prefix: str = "/api"):
 
         return {"success": True, "disconnected": True}
 
+    @app.post(f"{api_prefix}/mcp/install")
+    async def install_mcp_from_market(request: dict):
+        """从市场安装 MCP"""
+        mcp_id = request.get("mcp_id")
+        token = request.get("token")
+        path = request.get("path")
+
+        # MCP 市场数据
+        MCP_MARKET = {
+            "github": {
+                "name": "GitHub",
+                "command": "npx",
+                "args": ["-y", "@modelcontextprotocol/server-github"],
+                "env": {"GITHUB_PERSONAL_ACCESS_TOKEN": token} if token else {},
+            },
+            "filesystem": {
+                "name": "Filesystem",
+                "command": "npx",
+                "args": ["-y", "@modelcontextprotocol/server-filesystem", path or "/tmp"],
+                "env": {},
+            },
+            "fetch": {
+                "name": "Fetch",
+                "command": "npx",
+                "args": ["-y", "@modelcontextprotocol/server-fetch"],
+                "env": {},
+            },
+            "brave-search": {
+                "name": "Brave Search",
+                "command": "npx",
+                "args": ["-y", "@modelcontextprotocol/server-brave-search"],
+                "env": {"BRAVE_API_KEY": token} if token else {},
+            },
+            "postgres": {
+                "name": "PostgreSQL",
+                "command": "npx",
+                "args": ["-y", "@modelcontextprotocol/server-postgres", token or ""],
+                "env": {},
+            },
+            "puppeteer": {
+                "name": "Puppeteer",
+                "command": "npx",
+                "args": ["-y", "@modelcontextprotocol/server-puppeteer"],
+                "env": {},
+            },
+            "slack": {
+                "name": "Slack",
+                "command": "npx",
+                "args": ["-y", "@modelcontextprotocol/server-slack"],
+                "env": {"SLACK_BOT_TOKEN": token} if token else {},
+            },
+            "memory": {
+                "name": "Memory",
+                "command": "npx",
+                "args": ["-y", "@modelcontextprotocol/server-memory"],
+                "env": {},
+            },
+        }
+
+        if mcp_id not in MCP_MARKET:
+            raise HTTPException(status_code=400, detail=f"未知的 MCP: {mcp_id}")
+
+        mcp_info = MCP_MARKET[mcp_id]
+
+        # 检查是否已存在
+        configs = load_mcp_configs()
+        if mcp_id in configs:
+            raise HTTPException(status_code=400, detail=f"{mcp_info['name']} 已安装")
+
+        # 创建配置
+        config = MCPConfig(
+            id=mcp_id,
+            name=mcp_info["name"],
+            transport_type="stdio",
+            command=mcp_info["command"],
+            args=mcp_info["args"],
+            env=mcp_info["env"] if mcp_info["env"] else None,
+            description=f"从市场安装的 {mcp_info['name']}",
+            enabled=True,
+        )
+
+        configs[config.id] = config
+        save_mcp_configs(configs)
+
+        # 添加到客户端并尝试连接
+        client = get_mcp_client()
+        conn = MCPServerConnection(
+            server_id=config.id,
+            name=config.name,
+            transport_type=config.transport_type,
+            command=config.command,
+            args=config.args,
+            env=config.env,
+        )
+        client.add_connection(conn)
+
+        # 尝试连接
+        connected = False
+        try:
+            connected = await conn.connect()
+        except Exception as e:
+            print(f"连接失败: {e}")
+
+        return {
+            "success": True,
+            "id": config.id,
+            "name": config.name,
+            "connected": connected,
+            "message": f"{mcp_info['name']} 安装成功！",
+        }
+
+    @app.post(f"{api_prefix}/mcp/connect/{{server_id}}")
+    async def connect_mcp_server(server_id: str):
+        """连接 MCP 服务器"""
+        configs = load_mcp_configs()
+        if server_id not in configs:
+            raise HTTPException(status_code=404, detail="服务器不存在")
+
+        config = configs[server_id]
+        client = get_mcp_client()
+        conn = client.get_connection(server_id)
+
+        if not conn:
+            conn = MCPServerConnection(
+                server_id=config.id,
+                name=config.name,
+                transport_type=config.transport_type,
+                command=config.command,
+                args=config.args,
+                env=config.env,
+            )
+            client.add_connection(conn)
+
+        if conn.connected:
+            return {"success": True, "connected": True, "message": "已经连接"}
+
+        connected = await conn.connect()
+        return {
+            "success": True,
+            "connected": connected,
+            "message": "连接成功" if connected else "连接失败",
+        }
+
     @app.get(f"{api_prefix}/mcp/tools/{{server_id}}")
     async def list_mcp_tools(server_id: str):
         """获取服务器的工具列表"""
@@ -1176,6 +1321,79 @@ def register_api_routes(app: FastAPI, api_prefix: str = "/api"):
                 "result": SkillResult.error(
                     error_type="exception", message=str(e), execution_time_ms=execution_time_ms
                 ).dict(),
+            }
+
+    # ============ Skills 上传 API ============
+
+    @app.post(f"{api_prefix}/skills/upload")
+    async def upload_skills(file: UploadFile = File(...)):
+        """上传包含 skills 的 zip 压缩包"""
+        import tempfile
+        import zipfile
+        import shutil
+
+        # 验证文件类型
+        if not file.filename.endswith('.zip'):
+            raise HTTPException(status_code=400, detail="只支持 .zip 格式的压缩包")
+
+        # 创建临时目录
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_zip = Path(temp_dir) / "skills.zip"
+            
+            # 保存上传的文件
+            with open(temp_zip, "wb") as buffer:
+                content = await file.read()
+                buffer.write(content)
+            
+            # 解压到临时目录
+            extract_dir = Path(temp_dir) / "extracted"
+            extract_dir.mkdir()
+            
+            try:
+                with zipfile.ZipFile(temp_zip, 'r') as zip_ref:
+                    zip_ref.extractall(extract_dir)
+            except zipfile.BadZipFile:
+                raise HTTPException(status_code=400, detail="无效的 zip 文件")
+            
+            # 查找所有 yaml 文件
+            skills_dir = root_dir / "config" / "skills"
+            skills_dir.mkdir(parents=True, exist_ok=True)
+            
+            uploaded_count = 0
+            errors = []
+            
+            # 遍历解压的文件
+            for yaml_file in extract_dir.rglob("*.yaml"):
+                try:
+                    # 复制到 skills 目录
+                    dest_file = skills_dir / yaml_file.name
+                    shutil.copy2(yaml_file, dest_file)
+                    uploaded_count += 1
+                except Exception as e:
+                    errors.append(f"{yaml_file.name}: {str(e)}")
+            
+            # 也查找 .yml 文件
+            for yaml_file in extract_dir.rglob("*.yml"):
+                try:
+                    dest_file = skills_dir / yaml_file.name
+                    shutil.copy2(yaml_file, dest_file)
+                    uploaded_count += 1
+                except Exception as e:
+                    errors.append(f"{yaml_file.name}: {str(e)}")
+            
+            # 重新加载 skills
+            if uploaded_count > 0:
+                try:
+                    from agnes.skills import load_and_register_all
+                    load_and_register_all(skills_dir)
+                except Exception as e:
+                    errors.append(f"重新加载失败: {str(e)}")
+            
+            return {
+                "success": True,
+                "uploaded_count": uploaded_count,
+                "errors": errors if errors else None,
+                "message": f"成功上传 {uploaded_count} 个 Skill 文件"
             }
 
 

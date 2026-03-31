@@ -1,119 +1,177 @@
 """
-MCP 服务器管理页面 Schema - 使用 python-amis 构建
-MCP (Model Context Protocol) 服务器管理，支持添加、删除、测试连接
+MCP 市场页面 Schema - 用户友好的MCP管理
+提供预置MCP列表，一键安装，简化配置流程
 """
 
-from amis.components.Button import Button
-from amis.components.ButtonToolbar import ButtonToolbar
-from amis.components.CRUDTable import CRUDTable
-from amis.components.Dialog import Dialog
-from amis.components.Form import Form
-from amis.components.InputArray import InputArray
-from amis.components.InputText import InputText
-from amis.components.JSONEditorControl import JSONEditorControl
-from amis.components.Page import Page
-from amis.components.Select import Select
-from amis.components.Switch import Switch
-from amis.components.Table import Table
+import json
+from pathlib import Path
+
+
+def _load_mcp_market():
+    """从JSON文件加载MCP市场数据"""
+    market_file = Path(__file__).parent.parent.parent / "config" / "mcp" / "market.json"
+    try:
+        with open(market_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            print(f"[MCP] 成功加载市场数据: {len(data)} 条记录")
+            return data
+    except Exception as e:
+        print(f"[MCP] 加载MCP市场数据失败: {e}")
+        print(f"[MCP] 尝试加载的文件路径: {market_file}")
+        return []
+
+
+# 预置的 MCP 服务器市场数据
+MCP_MARKET = _load_mcp_market()
 
 
 def get_mcp_schema():
-    """获取 MCP 管理页面 amis Schema"""
+    """获取 MCP 市场页面 amis Schema"""
 
-    # 创建表单 - 添加/编辑
-    def _get_create_form():
-        json_editor = JSONEditorControl().name("env").label("环境变量 (JSON)").placeholder('{"KEY": "value"}').to_dict()
-        # 修正 type - python-amis 对 JSONEditorControl 过度转换
-        json_editor["type"] = "json-editor"
+    # 市场卡片 - 单个MCP
+    def _market_card(mcp):
+        install_btn = {
+            "type": "button",
+            "label": "安装",
+            "level": "primary",
+            "size": "sm",
+            "actionType": "dialog",
+            "dialog": _install_dialog(mcp),
+        }
 
-        form = (
-            Form()
-            .api("post:/api/mcp/create")
-            .submitText("添加并测试连接")
-            .body(
-                [
-                    InputText()
-                    .name("id")
-                    .label("服务器 ID")
-                    .placeholder("唯一标识符，例如: my-mcp-server")
-                    .required(True),
-                    InputText().name("name").label("服务器名称").placeholder("显示名称").required(True),
-                    InputText().name("description").label("描述").placeholder("简单描述这个服务器的用途"),
-                    Select()
-                    .name("transport_type")
-                    .label("传输类型")
-                    .options(
-                        [
-                            {"label": "STDIO", "value": "stdio"},
-                        ]
-                    )
-                    .value("stdio")
-                    .required(True),
-                    InputText().name("command").label("启动命令").placeholder("例如: python 或 uv").required(True),
-                    InputArray()
-                    .name("args")
-                    .label("命令参数")
-                    .placeholder("每个参数一行，例如: -m\nmcp_game_automation"),
-                    json_editor,
-                    Switch().name("enabled").label("启用").value(True),
-                ]
+        detail_btn = {
+            "type": "button",
+            "label": "详情",
+            "level": "light",
+            "size": "sm",
+            "actionType": "dialog",
+            "dialog": _detail_dialog(mcp),
+        }
+
+        return {
+            "type": "card",
+            "className": "m-b-sm",
+            "header": {
+                "title": mcp["name"],
+                "subTitle": mcp["category"],
+                "avatar": mcp["icon"],
+            },
+            "body": [
+                {
+                    "type": "tpl",
+                    "tpl": f'<p style="color: #666; font-size: 13px; margin: 8px 0;">{mcp["description"]}</p>',
+                },
+                {
+                    "type": "flex",
+                    "justify": "flex-end",
+                    "className": "mt-4",
+                    "items": [
+                        {
+                            "type": "button-group",
+                            "buttons": [install_btn, detail_btn],
+                        },
+                    ],
+                },
+            ],
+        }
+
+    # 安装对话框
+    def _install_dialog(mcp):
+        form_body = []
+
+        if mcp.get("needs_token"):
+            form_body.append(
+                {
+                    "type": "input-text",
+                    "name": "token",
+                    "label": mcp["token_name"],
+                    "required": True,
+                    "description": mcp["token_help"],
+                }
             )
-        )
-        return form.to_dict()
 
-    # 创建编辑表单 (修改 API)
-    def _get_edit_form():
-        form = _get_create_form()
-        # Already is dict, modify directly
-        form["initApi"] = "get:/api/mcp/get/${id}"
-        form["api"] = "put:/api/mcp/update/${id}"
-        return form
-
-    # 工具列表对话框
-    def _get_tools_dialog():
-        table = (
-            Table()
-            .source("${tools|json}")
-            .columns(
-                [
-                    {"name": "name", "label": "工具名称", "type": "text"},
-                    {"name": "description", "label": "描述", "type": "text"},
-                ]
+        if mcp.get("needs_path"):
+            form_body.append(
+                {
+                    "type": "input-text",
+                    "name": "path",
+                    "label": mcp["path_name"],
+                    "required": True,
+                    "description": mcp["path_help"],
+                }
             )
-        )
-        return table.to_dict()
 
-    # 组合工具栏和 CRUD
-    toolbar = ButtonToolbar().buttons(
-        [
-            Button()
-            .label("添加 MCP 服务器")
-            .level("primary")
-            .icon("fa fa-plus")
-            .actionType("dialog")
-            .dialog(Dialog().title("添加 MCP 服务器").body(_get_create_form()).size("lg").to_dict()),
-            Button().label("刷新").icon("fa fa-refresh").actionType("reload").target("mcp-table"),
-        ]
-    )
+        return {
+            "title": f"安装 {mcp['name']}",
+            "size": "md",
+            "body": {
+                "type": "form",
+                "api": {
+                    "method": "post",
+                    "url": "/api/mcp/install",
+                    "data": {
+                        "mcp_id": mcp["id"],
+                        "token": "${token}",
+                        "path": "${path}",
+                    },
+                },
+                "messages": {"success": f"{mcp['name']} 安装成功！"},
+                "body": [
+                    {
+                        "type": "alert",
+                        "level": "info",
+                        "body": f"即将安装 {mcp['name']}，这将自动配置以下工具：{', '.join(mcp['tools'])}",
+                    },
+                    *form_body,
+                ],
+            },
+        }
 
-    crud = (
-        CRUDTable()
-        .api("/api/mcp/list")
-        .name("mcp-table")
-        .primaryField("id")
-        .columns(
-            [
-                {"name": "id", "label": "ID", "type": "text"},
-                {"name": "name", "label": "名称", "type": "text"},
-                {"name": "transport_type", "label": "传输", "type": "text"},
-                {"name": "command", "label": "命令", "type": "text"},
+    # 详情对话框
+    def _detail_dialog(mcp):
+        return {
+            "title": f"{mcp['name']} 详情",
+            "size": "lg",
+            "body": [
+                {
+                    "type": "tpl",
+                    "tpl": f'<div style="text-align: center; padding: 20px;"><span style="font-size: 64px;">{mcp["icon"]}</span><h2>{mcp["name"]}</h2><p style="color: #666;">{mcp["description"]}</p></div>',
+                },
+                {"type": "divider"},
+                {
+                    "type": "tpl",
+                    "tpl": f"<h4>提供的工具</h4><ul>{''.join([f'<li><code>{tool}</code></li>' for tool in mcp['tools']])}</ul>",
+                },
+                {"type": "divider"},
+                {
+                    "type": "tpl",
+                    "tpl": f"<h4>安装方式</h4><pre>{mcp['install_command']} {' '.join(mcp['install_args'])}</pre>",
+                },
+            ],
+        }
+
+    # 已安装的MCP列表
+    def _installed_list():
+        return {
+            "type": "crud",
+            "api": "/api/mcp/list",
+            "name": "installed-mcp",
+            "primaryField": "id",
+            "perPage": 20,
+            "headerToolbar": ["reload"],
+            "columns": [
+                {
+                    "name": "name",
+                    "label": "名称",
+                    "type": "text",
+                },
                 {
                     "name": "connected",
-                    "label": "连接状态",
+                    "label": "状态",
                     "type": "status",
                     "map": {
                         "true": {"label": "已连接", "type": "success"},
-                        "false": {"label": "未连接", "type": "danger"},
+                        "false": {"label": "未连接", "type": "default"},
                     },
                 },
                 {"name": "tool_count", "label": "工具数", "type": "number"},
@@ -122,62 +180,84 @@ def get_mcp_schema():
                     "label": "操作",
                     "buttons": [
                         {
-                            "label": "测试连接",
+                            "label": "启用",
                             "type": "button",
                             "level": "success",
+                            "size": "sm",
                             "actionType": "ajax",
-                            "api": "post:/api/mcp/test/${id}",
-                            "messages": {"success": "连接成功"},
+                            "api": "post:/api/mcp/connect/${id}",
+                            "visibleOn": "!data.connected",
+                            "messages": {"success": "已启用"},
                             "refresh": True,
                         },
                         {
-                            "label": "断开连接",
+                            "label": "停用",
                             "type": "button",
                             "level": "warning",
+                            "size": "sm",
                             "actionType": "ajax",
                             "api": "post:/api/mcp/disconnect/${id}",
-                            "messages": {"success": "已断开连接"},
+                            "visibleOn": "data.connected",
+                            "messages": {"success": "已停用"},
                             "refresh": True,
                         },
                         {
-                            "label": "编辑",
-                            "type": "button",
-                            "level": "info",
-                            "actionType": "dialog",
-                            "dialog": {
-                                "title": "编辑 MCP 服务器",
-                                "body": _get_edit_form(),
-                                "size": "lg",
-                            },
-                        },
-                        {
-                            "label": "查看工具",
-                            "type": "button",
-                            "level": "primary",
-                            "actionType": "dialog",
-                            "dialog": {
-                                "title": "工具列表 - ${name}",
-                                "body": _get_tools_dialog(),
-                                "size": "lg",
-                            },
-                        },
-                        {
-                            "label": "删除",
+                            "label": "卸载",
                             "type": "button",
                             "level": "danger",
+                            "size": "sm",
                             "actionType": "ajax",
                             "api": "delete:/api/mcp/delete/${id}",
-                            "confirmText": "确定要删除这个服务器吗？",
-                            "messages": {"success": "删除成功"},
+                            "confirmText": "确定要卸载此MCP吗？",
+                            "messages": {"success": "已卸载"},
                             "refresh": True,
                         },
                     ],
                 },
-            ]
-        )
-    )
+            ],
+        }
 
-    # 组合成完整页面
-    page = Page().title("MCP 管理").body([toolbar, crud])
+    # 市场列表
+    market_cards = [_market_card(mcp) for mcp in MCP_MARKET]
+    print(f"[MCP] 生成 market_cards: {len(market_cards)} 个卡片")
 
-    return page.to_dict()
+    # 将 market_cards 分成两列（二维数组格式）
+    col1_cards = [card for i, card in enumerate(market_cards) if i % 2 == 0]
+    col2_cards = [card for i, card in enumerate(market_cards) if i % 2 == 1]
+    print(f"[MCP] 分列完成: 第一列 {len(col1_cards)} 个, 第二列 {len(col2_cards)} 个")
+
+    # 组合页面
+    return {
+        "type": "page",
+        "title": "MCP 市场",
+        "body": [
+            {
+                "type": "alert",
+                "level": "info",
+                "body": "💡 MCP (Model Context Protocol) 可以为 AI 添加额外能力，如文件操作、网页搜索、数据库访问等。选择需要的功能一键安装即可！",
+            },
+            {
+                "type": "tabs",
+                "tabs": [
+                    {
+                        "title": "🏪 MCP 市场",
+                        "body": [
+                            {
+                                "type": "grid",
+                                "columns": [{"md": 6}, {"md": 6}],
+                                "gap": "md",
+                                "items": [
+                                    {"body": col1_cards},  # 包装成对象
+                                    {"body": col2_cards},  # 包装成对象
+                                ],
+                            }
+                        ],
+                    },
+                    {
+                        "title": "📦 已安装",
+                        "body": [_installed_list()],
+                    },
+                ],
+            },
+        ],
+    }

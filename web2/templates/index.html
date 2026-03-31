@@ -212,8 +212,8 @@
                     `;
 
                     try {
-                        // 异步请求页面 schema
-                        const response = await fetch(`/api/pages/${pageName}`);
+                        // 异步请求页面 schema（添加时间戳防止缓存）
+                        const response = await fetch(`/api/pages/${pageName}?_t=${Date.now()}`);
                         if (!response.ok) {
                             throw new Error(`HTTP ${response.status}: ${await response.text()}`);
                         }

@@ -96,6 +96,36 @@ def get_skill_schema():
         .to_dict()
     )
 
+    # 上传按钮
+    upload_button = (
+        Button()
+        .label("上传 Skills")
+        .level("success")
+        .icon("fa fa-upload")
+        .actionType("dialog")
+        .dialog(
+            {
+                "title": "上传 Skills 压缩包",
+                "body": {
+                    "type": "form",
+                    "api": "post:/api/skills/upload",
+                    "messages": {"success": "上传成功", "failed": "上传失败"},
+                    "body": [
+                        {
+                            "type": "input-file",
+                            "name": "file",
+                            "label": "选择 zip 文件",
+                            "accept": ".zip",
+                            "required": True,
+                            "description": "请上传包含 .yaml 或 .yml 文件的 zip 压缩包",
+                        }
+                    ],
+                },
+            }
+        )
+        .to_dict()
+    )
+
     # 参数卡片
     param_card = (
         Card()
@@ -147,6 +177,7 @@ def get_skill_schema():
     page = (
         Page()
         .title("Skill 调试器")
+        .toolbar([upload_button])
         .body(
             [
                 info_alert,
@@ -154,5 +185,4 @@ def get_skill_schema():
             ]
         )
     )
-
     return page.to_dict()

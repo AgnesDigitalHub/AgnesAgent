@@ -20,7 +20,6 @@ from agnes import (
     OllamaProvider,
     OpenAIProvider,
     OpenAIWhisperProvider,
-    OpenVINOProvider,
     ProviderSelector,
     get_logger,
 )
@@ -77,9 +76,11 @@ class AgnesAgent:
             "openai",
             "openai-compat",
             "deepseek",
+            "nvidia",
+            "siliconflow",
+            "minimax",
             "gemini",
             "anthropic",
-            "openvino-server",
             "local-api",
             "generic",
         }
@@ -92,15 +93,17 @@ class AgnesAgent:
             )
         elif provider_type in openai_compatible_providers:
             # 默认 API Key 处理：本地服务一般不需要 key
-            default_api_key = "dummy-key" if provider_type in ["ollama", "openvino-server", "generic"] else ""
+            default_api_key = "dummy-key" if provider_type in ["ollama", "generic"] else ""
             # 默认 Base URL
             default_base_url = {
                 "openai": "https://api.openai.com/v1",
                 "deepseek": "https://api.deepseek.com",
+                "nvidia": "https://integrate.api.nvidia.com/v1",
+                "siliconflow": "https://api.siliconflow.cn/v1",
+                "minimax": "https://api.minimax.chat/v1",
                 "gemini": "https://generativelanguage.googleapis.com/v1beta",
                 "anthropic": "https://api.anthropic.com",
                 "ollama": "http://localhost:11434/v1",
-                "openvino-server": "http://localhost:8000/v1",
             }.get(provider_type, "http://localhost:8000/v1")
 
             self.llm_provider = OpenAIProvider(
@@ -109,8 +112,6 @@ class AgnesAgent:
                 model=config.model,
                 proxy=self.config.proxy.http_proxy,
             )
-        elif provider_type == "openvino":
-            self.llm_provider = OpenVINOProvider(model_name_or_path=config.model)
         else:
             raise ValueError(f"Unknown LLM provider: {provider_type}")
 

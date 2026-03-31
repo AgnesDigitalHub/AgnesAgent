@@ -12,11 +12,12 @@ class ProviderSelector:
         "openai",
         "openai-compat",
         "deepseek",
+        "nvidia",
+        "siliconflow",
+        "minimax",
         "gemini",
         "anthropic",
         "ollama",
-        "openvino-server",
-        "openvino",
         "generic",
     ]
     ASR_PROVIDERS = ["local_whisper", "openai_whisper"]
@@ -77,11 +78,24 @@ class ProviderSelector:
             base_url = input(f"  Base URL [{default_base_url}]: ").strip()
             llm_config.base_url = base_url or default_base_url
 
-        elif provider_type in ["openai", "openai-compat", "deepseek", "gemini", "anthropic", "generic"]:
+        elif provider_type in [
+            "openai",
+            "openai-compat",
+            "deepseek",
+            "nvidia",
+            "siliconflow",
+            "minimax",
+            "gemini",
+            "anthropic",
+            "generic",
+        ]:
             # 所有 OpenAI 兼容供应商配置逻辑相同
             default_models = {
                 "openai": "gpt-3.5-turbo",
                 "deepseek": "deepseek-chat",
+                "nvidia": "meta/llama-3.1-405b-instruct",
+                "siliconflow": "Qwen/Qwen2.5-7B-Instruct",
+                "minimax": "abab6.5-chat",
                 "gemini": "gemini-pro",
                 "anthropic": "claude-3-sonnet-20240229",
                 "openai-compat": "gpt-3.5-turbo",
@@ -90,6 +104,9 @@ class ProviderSelector:
             default_base_urls = {
                 "openai": "https://api.openai.com/v1",
                 "deepseek": "https://api.deepseek.com",
+                "nvidia": "https://integrate.api.nvidia.com/v1",
+                "siliconflow": "https://api.siliconflow.cn/v1",
+                "minimax": "https://api.minimax.chat/v1",
                 "gemini": "https://generativelanguage.googleapis.com/v1beta",
                 "anthropic": "https://api.anthropic.com",
                 "openai-compat": "https://api.openai.com/v1",
@@ -111,8 +128,8 @@ class ProviderSelector:
             base_url = input(f"  Base URL [{default_base_url}]: ").strip()
             llm_config.base_url = base_url or default_base_url
 
-            # Ollama 和 openvino-server 不需要 key，其他供应商需要
-            if provider_type not in ["ollama", "openvino-server", "generic"]:
+            # Ollama 不需要 key，其他供应商需要
+            if provider_type not in ["ollama", "generic"]:
                 current_api_key = config.llm.api_key if config and config.llm.provider == provider_type else ""
                 if current_api_key:
                     mask = "*" * min(len(current_api_key), 8)
@@ -120,30 +137,6 @@ class ProviderSelector:
                     llm_config.api_key = api_key or current_api_key
                 else:
                     llm_config.api_key = input("  API Key: ").strip()
-
-        elif provider_type == "openvino-server":
-            default_model = config.llm.model if config and config.llm.provider == "openvino-server" else "qwen1.5b-ov"
-            llm_config.model = input(f"  模型名称 [{default_model}]: ").strip() or default_model
-
-            default_base_url = (
-                config.llm.base_url if config and config.llm.provider == "openvino-server" else "http://localhost:11434"
-            )
-            base_url = input(f"  Base URL [{default_base_url}]: ").strip()
-            llm_config.base_url = base_url or default_base_url
-
-        elif provider_type == "local-api":
-            default_model = config.llm.model if config and config.llm.provider == "local-api" else "local-model"
-            llm_config.model = input(f"  模型名称 [{default_model}]: ").strip() or default_model
-
-            default_base_url = (
-                config.llm.base_url if config and config.llm.provider == "local-api" else "http://localhost:11434/v1"
-            )
-            base_url = input(f"  Base URL [{default_base_url}]: ").strip()
-            llm_config.base_url = base_url or default_base_url
-
-        elif provider_type == "openvino":
-            default_model = config.llm.model if config and config.llm.provider == "openvino" else "llama2"
-            llm_config.model = input(f"  模型名称/路径 [{default_model}]: ").strip() or default_model
 
         return llm_config
 
