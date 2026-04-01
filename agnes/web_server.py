@@ -8,10 +8,11 @@ import threading
 import webbrowser
 from contextlib import asynccontextmanager
 
-# Build complete amis app configuration with all schemas embedded
-from amis.components import App
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+
+# Build complete amis app configuration with all schemas embedded
+from fastapi_amis_admin.amis.components import App
 
 # pydantic imports
 from pydantic import BaseModel
@@ -19,7 +20,7 @@ from pydantic import BaseModel
 from agnes import ChatHistory, get_logger
 from agnes.core.llm_provider import LLMResponse
 
-# Import python-amis schemas - 动态导入避免循环依赖
+# Import amis schemas
 from web2.schemas.agents import get_agents_schema
 from web2.schemas.chat import get_chat_schema
 from web2.schemas.dashboard import get_dashboard_schema

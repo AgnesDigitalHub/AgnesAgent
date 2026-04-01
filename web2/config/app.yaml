@@ -50,7 +50,27 @@ menus:
   - name: "mcp"
     label: "MCP 管理"
     icon: "plug"
-    url: "/mcp"
+    children:
+      - name: "mcp_market"
+        label: "工具市场"
+        icon: "search"
+        url: "/mcp/market"
+      - name: "mcp_servers"
+        label: "服务器管理"
+        icon: "settings"
+        url: "/mcp/servers"
+      - name: "mcp_secrets"
+        label: "密钥管理"
+        icon: "vpn_key"
+        url: "/mcp/secrets"
+      - name: "mcp_presets"
+        label: "预设模板"
+        icon: "widgets"
+        url: "/mcp/presets"
+      - name: "mcp_logs"
+        label: "调用日志"
+        icon: "history"
+        url: "/mcp/logs"
 
   - name: "skill"
     label: "Skill 调试器"
@@ -108,6 +128,26 @@ pages:
 
   prompts:
     title: "Prompt IDE"
+    schema: null
+
+  mcp_market:
+    title: "MCP 工具市场"
+    schema: null
+
+  mcp_servers:
+    title: "MCP 服务器管理"
+    schema: null
+
+  mcp_secrets:
+    title: "MCP 密钥管理"
+    schema: null
+
+  mcp_presets:
+    title: "MCP 预设模板"
+    schema: null
+
+  mcp_logs:
+    title: "MCP 调用日志"
     schema: null
 
   mcp:

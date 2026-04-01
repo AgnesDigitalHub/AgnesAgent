@@ -56,6 +56,17 @@ logs/
 Thumbs.db
 
 # Deployment
-uv.lock
 .ruff_cache/
 tests/
+# User custom configuration that should not be uploaded
+config/config.yaml
+config/mcp/management/*
+!config/mcp/management/.gitkeep
+config/mcp/servers.json
+config/personas/personas.json
+config/llm_profiles/profiles.json
+config/stats/*
+!config/stats/.gitkeep
+# Local IDE
+.vscode/
+.idea/

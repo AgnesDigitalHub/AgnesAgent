@@ -1,10 +1,10 @@
 """
-模型管理页面 Schema - 重新设计版本
+模型管理页面 Schema - 直接字典构建
 """
 
 
-def get_models_schema():
-    """获取模型管理页面 amis Schema"""
+def get_models_schema() -> dict:
+    """获取模型管理页面 amis Schema - 直接字典构建"""
 
     # 主流 AI 供应商列表
     provider_options = [

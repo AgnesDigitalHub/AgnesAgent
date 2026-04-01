@@ -1,16 +1,19 @@
 """
-聊天页面 Schema - 使用 python-amis 构建
+聊天页面 Schema - 直接字典构建
 """
 
-from amis.amis import amis
 
-
-def get_chat_schema():
+def get_chat_schema() -> dict:
     """获取聊天页面 amis Schema"""
-    a = amis()
 
-    custom = a.Custom()
-    custom.onMount("""
+    return {
+        "type": "page",
+        "title": "聊天",
+        "className": "chat-page",
+        "body": [
+            {
+                "type": "custom",
+                "onMount": """
 (function() {
     // 构建完整界面
     const container = document.createElement('div');
@@ -237,12 +240,8 @@ def get_chat_schema():
     connect();
     checkStatus();
 })();
-    """)
-    custom.html("<div id='chat-container' style='width: 100%; height: 100%;'></div>")
-
-    page = a.Page()
-    page.title("聊天")
-    page.className("chat-page")
-    page.body([custom])
-
-    return page.to_dict()
+    """,
+                "html": "<div id='chat-container' style='width: 100%; height: 100%;'></div>",
+            }
+        ],
+    }

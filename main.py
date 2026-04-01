@@ -582,7 +582,8 @@ async def main():
                 from web2.main import create_app
 
                 # 创建 web2 应用
-                web2_app = create_app(reload=args.reload)
+                # 集成到根应用时，不添加兜底路由，否则会导致路由匹配错误（例如 /api/pages/mcp/market 会被错误匹配返回 404）
+                web2_app = create_app(reload=args.reload, add_spa_fallback=False)
 
                 # 创建干净的主应用，不使用 agnes.server.create_app 避免冲突路由
                 main_app = FastAPI(title="AgnesAgent Web2", version="2.0.0")
@@ -636,10 +637,9 @@ async def main():
 
                 # 直接把 web2_app 的路由挂载到根
                 # 用户要求全部改成根路径，不要 /web2 前缀
-                from fastapi import APIRouter
-
-                for route in web2_app.routes:
-                    main_app.routes.append(route)
+                # 不能直接 append 到 main_app.routes，因为 FastAPI 不会重建路由树
+                # 正确的做法是使用 include_router 包含 web2 的路由表
+                main_app.include_router(web2_app.router)
 
                 if not args.no_browser:
 

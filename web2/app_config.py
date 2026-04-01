@@ -218,43 +218,76 @@ class AmisAppConfig:
             }
         )
 
-        for page_name, page_data in pages_config.items():
-            # 从菜单找 url
-            path = page_name
-            menus = self.raw_config.get("menus", [])
+        # 递归收集所有页面（从菜单配置）
+        # 只有有 url 的菜单项才会被当作页面添加
+        # 有 children 的折叠菜单项不会作为页面，只会处理它的 children
+        def collect_pages_from_menus(menus, parent_path=""):
+            collected = []
             for menu in menus:
-                if menu.get("name") == page_name and "url" in menu:
-                    path = menu["url"].lstrip("/")
-                    break
+                if "children" in menu and menu["children"]:
+                    # 有子菜单：只递归处理子菜单，父菜单本身不添加页面
+                    # 父菜单只作为折叠项展示在侧边栏
+                    collected.extend(collect_pages_from_menus(menu["children"], menu.get("url", "")))
+                    # 如果父菜单自己也有 url（极少数情况），才额外添加它
+                    if "url" in menu and menu["url"]:
+                        page_name = menu.get("name")
+                        if page_name:
+                            url_path = menu["url"].lstrip("/")
+                            # url_path 转换为文件名：mcp/servers -> mcp_servers
+                            page_name_py = url_path.replace("/", "_").replace("-", "_")
 
-            # 使用 schemaApi 而非内嵌 schema
-            # app 挂载在根路径，url 必须以 / 开头，否则 AMIS 不识别为合法菜单项
-            # 从菜单配置中获取 label 和 icon，这是 AMIS 生成侧边栏菜单需要的
-            label = page_name
-            icon = None
-            menus = self.raw_config.get("menus", [])
-            for menu in menus:
-                if menu.get("name") == page_name:
-                    label = menu.get("label", menu.get("name", page_name))
+                            # 获取 label 和 icon
+                            label = menu.get("label", page_name)
+                            icon = menu.get("icon")
+
+                            page_config = {
+                                "label": label,
+                                "url": f"/{url_path}",  # AMIS 要求 url 必须以 / 开头
+                                "schemaApi": f"get:{self.api_prefix}/pages/{url_path}",
+                            }
+                            if icon:
+                                if not icon.startswith("fa "):
+                                    fa_icon = icon.replace("_", "-")
+                                    page_config["icon"] = f"fa fa-{fa_icon}"
+                                else:
+                                    page_config["icon"] = icon
+                            collected.append(page_config)
+                elif "url" in menu:
+                    # 叶子节点（有 url 没有 children）才添加页面
+                    page_name = menu.get("name")
+                    if not page_name:
+                        continue
+
+                    url_path = menu["url"].lstrip("/")
+                    # url_path 转换为文件名：mcp/servers -> mcp_servers
+                    page_name_py = url_path.replace("/", "_").replace("-", "_")
+
+                    # 获取 label 和 icon
+                    label = menu.get("label", page_name)
                     icon = menu.get("icon")
-                    break
 
-            page_config = {
-                "label": label,
-                "url": f"/{path}",  # AMIS 要求 url 必须以 / 开头
-                "schemaApi": f"get:{self.api_prefix}/pages/{page_name}",
-            }
-            if icon:
-                # AMIS cxd 主题默认使用 Font Awesome 图标
-                # Material Design 名称需要转换为 fa fa-xxx 格式
-                if not icon.startswith("fa "):
-                    # 下划线转横线，添加 fa fa- 前缀
-                    fa_icon = icon.replace("_", "-")
-                    page_config["icon"] = f"fa fa-{fa_icon}"
-                else:
-                    page_config["icon"] = icon
+                    page_config = {
+                        "label": label,
+                        "url": f"/{url_path}",  # AMIS 要求 url 必须以 / 开头
+                        "schemaApi": f"get:{self.api_prefix}/pages/{url_path}",
+                    }
+                    if icon:
+                        # AMIS cxd 主题默认使用 Font Awesome 图标
+                        # Material Design 名称需要转换为 fa fa-xxx 格式
+                        if not icon.startswith("fa "):
+                            # 下划线转横线，添加 fa fa- 前缀
+                            fa_icon = icon.replace("_", "-")
+                            page_config["icon"] = f"fa fa-{fa_icon}"
+                        else:
+                            page_config["icon"] = icon
 
-            amis_pages.append(page_config)
+                    collected.append(page_config)
+            return collected
+
+        # 从菜单配置递归收集所有页面
+        menus = self.raw_config.get("menus", [])
+        collected_pages = collect_pages_from_menus(menus)
+        amis_pages.extend(collected_pages)
 
         # 转换为 Amis App 结构
         result = self._convert_to_amis_structure(app_config, amis_pages)

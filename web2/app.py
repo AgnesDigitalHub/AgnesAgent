@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, UploadFile, File
+from fastapi import FastAPI, File, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 
@@ -35,7 +35,7 @@ def read_index_html() -> str:
         return f.read()
 
 
-def register_amis_routes(app: FastAPI, api_prefix: str = "/api") -> None:
+def register_amis_routes(app: FastAPI, api_prefix: str = "/api", add_spa_fallback: bool = True) -> None:
     """
     注册 AMIS SPA 所需路由：
     1. GET / - 返回 HTML 入口页
@@ -63,16 +63,18 @@ def register_amis_routes(app: FastAPI, api_prefix: str = "/api") -> None:
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"构建 App 配置失败: {str(e)}")
 
-    @app.get(f"{api_prefix}/pages/{{page_name}}", response_class=JSONResponse)
-    async def get_page_schema(page_name: str):
+    @app.get(f"{api_prefix}/pages/{{full_path:path}}", response_class=JSONResponse)
+    async def get_page_schema(full_path: str):
         """获取单个页面 schema（异步按需加载）
-        URL 中的连字符会转换为下划线匹配 Python 文件名
+        URL 路径中的连字符和斜杠都会转换为下划线匹配 Python 文件名
+        例如 mcp/servers -> mcp_servers
         """
-        # URL 路径中的连字符转下划线，因为 Python 模块名不能包含连字符
-        page_name_py = page_name.replace("-", "_")
+        # 将路径中的斜杠转换为下划线匹配 Python 模块名
+        # /mcp/servers -> mcp_servers
+        page_name_py = full_path.replace("/", "_").replace("-", "_")
         schema = app_config.get_page_schema(page_name_py)
         if schema is None:
-            raise HTTPException(status_code=404, detail=f"页面 {page_name} 不存在")
+            raise HTTPException(status_code=404, detail=f"页面 {full_path} 不存在")
         return JSONResponse(content=schema)
 
     # 暴露 app.json - 供前端获取顶层配置
@@ -90,16 +92,19 @@ def register_amis_routes(app: FastAPI, api_prefix: str = "/api") -> None:
 
     # SPA 兜底路由：所有非 API、非静态文件请求都返回 index.html
     # 这样才能支持浏览器直接访问 /dashboard 等前端路由
-    @app.get("/{full_path:path}", response_class=HTMLResponse)
-    async def serve_spa(full_path: str):
-        # 过滤掉 API 请求，API 请求不应该返回 HTML
-        if full_path.startswith("api/") or full_path.startswith("/api/"):
-            raise HTTPException(status_code=404, detail="API 端点不存在")
-        # 过滤掉带扩展名的静态资源请求，避免把 .js/.css 也返回成 html
-        if "." in full_path:
-            raise HTTPException(status_code=404, detail="静态资源不存在")
-        html = read_index_html()
-        return HTMLResponse(content=html)
+    # 但当 web2_app 被挂载到根应用时（如 main.py 中）不要添加兜底路由，否则会导致路由匹配问题
+    if add_spa_fallback:
+
+        @app.get("/{full_path:path}", response_class=HTMLResponse)
+        async def serve_spa(full_path: str):
+            # 过滤掉 API 请求，API 请求不应该返回 HTML
+            if full_path.startswith("api/") or full_path.startswith("/api/"):
+                raise HTTPException(status_code=404, detail="API 端点不存在")
+            # 过滤掉带扩展名的静态资源请求，避免把 .js/.css 也返回成 html
+            if "." in full_path:
+                raise HTTPException(status_code=404, detail="静态资源不存在")
+            html = read_index_html()
+            return HTMLResponse(content=html)
 
 
 # ============ LLM 工厂函数 ============
@@ -254,6 +259,15 @@ if not mcp_storage_path.parent.exists():
 
 
 # Pydantic 模型
+from agnes.mcp.manager import (
+    DependencyInstaller,
+    HealthStatus,
+    MCPEnhancedManager,
+    MCPSecurityConfig,
+    enhanced_manager,
+)
+
+
 class MCPConfig(BaseModel):
     """MCP 服务器配置"""
 
@@ -265,6 +279,62 @@ class MCPConfig(BaseModel):
     env: dict[str, str] | None = None
     description: str = ""
     enabled: bool = True
+
+    # 环境
+    environment: str = "default"
+    """环境名称（用于多环境配置支持：default / development / production）"""
+
+    # 安全配置
+    security: MCPSecurityConfig = MCPSecurityConfig()
+    """安全配置整合"""
+
+    # 向后兼容字段 - 将被弃用
+    readonly: bool = False
+    """@deprecated 使用 security.readonly"""
+
+    confirm_on_dangerous: bool = True
+    """@deprecated 使用 security.confirm_on_dangerous"""
+
+    allowed_paths: list[str] | None = None
+    """@deprecated 使用 security.allowed_paths"""
+
+    allowed_domains: list[str] | None = None
+    """@deprecated 使用 security.allowed_domains"""
+
+    # Token 预估
+    token_estimate: int = 0
+    """预估增加的 token 消耗"""
+
+    # 元数据
+    created_at: str | None = None
+    """创建时间"""
+
+    updated_at: str | None = None
+    """更新时间"""
+
+    # 迁移兼容处理
+    def __init__(self, **data):
+        # 迁移旧版字段到新版结构
+        if "readonly" in data and data["readonly"] and "security" not in data:
+            data["security"] = MCPSecurityConfig(readonly=data["readonly"])
+        if "confirm_on_dangerous" in data and "security" not in data:
+            if "security" not in data:
+                data["security"] = MCPSecurityConfig()
+            data["security"].confirm_on_dangerous = data["confirm_on_dangerous"]
+        if "allowed_paths" in data and data["allowed_paths"] and "security" not in data:
+            if "security" not in data:
+                data["security"] = MCPSecurityConfig()
+            data["security"].allowed_paths = data["allowed_paths"] or []
+        if "allowed_domains" in data and data["allowed_domains"] and "security" not in data:
+            if "security" not in data:
+                data["security"] = MCPSecurityConfig()
+            data["security"].allowed_domains = data["allowed_domains"] or []
+        # 添加时间戳
+        from datetime import datetime
+
+        if "created_at" not in data:
+            data["created_at"] = datetime.now().isoformat()
+        super().__init__(**data)
 
 
 def load_mcp_configs() -> dict[str, MCPConfig]:
@@ -596,9 +666,6 @@ def register_api_routes(app: FastAPI, api_prefix: str = "/api"):
 
                 try:
                     # 流式生成 - 始终使用构造好的 messages 列表
-                    print(f"[DEBUG][WS] 发送给 LLM 的消息 ({len(messages)} 条):")
-                    for _i, _m in enumerate(messages):
-                        print(f"  [{_i}] role={_m.get('role')} content={str(_m.get('content', ''))[:200]!r}")
                     async for token in llm.chat_stream(  # type: ignore
                         messages,
                         temperature=active_profile.temperature,
@@ -905,6 +972,24 @@ def register_api_routes(app: FastAPI, api_prefix: str = "/api"):
 
     # ============ MCP 管理 API ============
 
+    def _check_command_exists(cmd: str) -> bool:
+        """检查命令是否在系统 PATH 中存在"""
+        import shutil
+
+        return shutil.which(cmd) is not None
+
+    @app.get(f"{api_prefix}/mcp/check-env")
+    async def check_mcp_environment():
+        """检查 MCP 运行环境（node/uv 等是否安装）"""
+        return {
+            "node": _check_command_exists("node"),
+            "npm": _check_command_exists("npm"),
+            "npx": _check_command_exists("npx"),
+            "uv": _check_command_exists("uv"),
+            "uvx": _check_command_exists("uvx"),
+            "python": _check_command_exists("python") or _check_command_exists("python3"),
+        }
+
     # 请求模型
     class CreateMCPRequest(BaseModel):
         id: str
@@ -915,6 +1000,11 @@ def register_api_routes(app: FastAPI, api_prefix: str = "/api"):
         env: dict[str, str] | None = None
         description: str = ""
         enabled: bool = True
+        # 安全配置
+        readonly: bool = False
+        confirm_on_dangerous: bool = True
+        allowed_paths: list[str] | None = None
+        allowed_domains: list[str] | None = None
 
     class UpdateMCPRequest(BaseModel):
         id: str | None = None
@@ -925,6 +1015,11 @@ def register_api_routes(app: FastAPI, api_prefix: str = "/api"):
         env: dict[str, str] | None = None
         description: str | None = None
         enabled: bool | None = None
+        # 安全配置
+        readonly: bool | None = None
+        confirm_on_dangerous: bool | None = None
+        allowed_paths: list[str] | None = None
+        allowed_domains: list[str] | None = None
 
     @app.get(f"{api_prefix}/mcp/list")
     async def list_mcp_servers():
@@ -1121,62 +1216,37 @@ def register_api_routes(app: FastAPI, api_prefix: str = "/api"):
         token = request.get("token")
         path = request.get("path")
 
-        # MCP 市场数据
-        MCP_MARKET = {
-            "github": {
-                "name": "GitHub",
-                "command": "npx",
-                "args": ["-y", "@modelcontextprotocol/server-github"],
-                "env": {"GITHUB_PERSONAL_ACCESS_TOKEN": token} if token else {},
-            },
-            "filesystem": {
-                "name": "Filesystem",
-                "command": "npx",
-                "args": ["-y", "@modelcontextprotocol/server-filesystem", path or "/tmp"],
-                "env": {},
-            },
-            "fetch": {
-                "name": "Fetch",
-                "command": "npx",
-                "args": ["-y", "@modelcontextprotocol/server-fetch"],
-                "env": {},
-            },
-            "brave-search": {
-                "name": "Brave Search",
-                "command": "npx",
-                "args": ["-y", "@modelcontextprotocol/server-brave-search"],
-                "env": {"BRAVE_API_KEY": token} if token else {},
-            },
-            "postgres": {
-                "name": "PostgreSQL",
-                "command": "npx",
-                "args": ["-y", "@modelcontextprotocol/server-postgres", token or ""],
-                "env": {},
-            },
-            "puppeteer": {
-                "name": "Puppeteer",
-                "command": "npx",
-                "args": ["-y", "@modelcontextprotocol/server-puppeteer"],
-                "env": {},
-            },
-            "slack": {
-                "name": "Slack",
-                "command": "npx",
-                "args": ["-y", "@modelcontextprotocol/server-slack"],
-                "env": {"SLACK_BOT_TOKEN": token} if token else {},
-            },
-            "memory": {
-                "name": "Memory",
-                "command": "npx",
-                "args": ["-y", "@modelcontextprotocol/server-memory"],
-                "env": {},
-            },
-        }
+        # 从配置文件加载 MCP 市场数据
+        from web2.schemas.mcp import MCP_MARKET
 
-        if mcp_id not in MCP_MARKET:
+        # 查找 MCP 信息
+        mcp_info = None
+        for item in MCP_MARKET:
+            if item["id"] == mcp_id:
+                mcp_info = item
+                break
+
+        if not mcp_info:
             raise HTTPException(status_code=400, detail=f"未知的 MCP: {mcp_id}")
 
-        mcp_info = MCP_MARKET[mcp_id]
+        # 构建 env
+        env = {}
+        command = mcp_info["command"]
+        args = mcp_info["args"].copy()
+
+        # 如果需要 token，注入到环境变量或参数
+        if mcp_info.get("needs_token") and token:
+            token_key = mcp_info.get("token_key", mcp_info.get("token_name"))
+            if token_key:
+                env[token_key] = token
+
+        # 如果需要路径，注入到参数
+        if mcp_info.get("needs_path") and path:
+            # 找到占位符替换
+            if "{}" in args:
+                args = [path if arg == "{}" else arg for arg in args]
+            elif args and args[-1] == "{}":
+                args[-1] = path
 
         # 检查是否已存在
         configs = load_mcp_configs()
@@ -1188,10 +1258,10 @@ def register_api_routes(app: FastAPI, api_prefix: str = "/api"):
             id=mcp_id,
             name=mcp_info["name"],
             transport_type="stdio",
-            command=mcp_info["command"],
-            args=mcp_info["args"],
-            env=mcp_info["env"] if mcp_info["env"] else None,
-            description=f"从市场安装的 {mcp_info['name']}",
+            command=command,
+            args=args,
+            env=env if env else None,
+            description=mcp_info.get("description", f"从市场安装的 {mcp_info['name']}"),
             enabled=True,
         )
 
@@ -1257,6 +1327,617 @@ def register_api_routes(app: FastAPI, api_prefix: str = "/api"):
             "message": "连接成功" if connected else "连接失败",
         }
 
+    @app.post(f"{api_prefix}/mcp/install-dependency")
+    async def install_mcp_dependency(request: dict):
+        """一键安装缺失依赖（node/uv 等）"""
+        dependency = request.get("dependency")
+        if not dependency:
+            raise HTTPException(status_code=400, detail="缺少 dependency 参数")
+
+        success, message = DependencyInstaller.install_dependency(dependency)
+        return {
+            "success": success,
+            "message": message,
+        }
+
+    @app.get(f"{api_prefix}/mcp/check-health/{{server_id}}")
+    async def check_mcp_health(server_id: str):
+        """检查服务器健康状态"""
+        configs = load_mcp_configs()
+        if server_id not in configs:
+            raise HTTPException(status_code=404, detail="服务器不存在")
+
+        client = get_mcp_client()
+        conn = client.get_connection(server_id)
+
+        if not conn:
+            return {
+                "server_id": server_id,
+                "health": HealthStatus.UNKNOWN,
+                "status": "未连接",
+            }
+
+        connected = conn.connected
+        last_error = conn.last_error
+        health = enhanced_manager.check_health(server_id, connected, last_error)
+
+        return {
+            "server_id": server_id,
+            "health": health.value,
+            "connected": connected,
+            "last_error": last_error,
+            "status": {
+                HealthStatus.RUNNING: "运行中",
+                HealthStatus.STOPPED: "已停止",
+                HealthStatus.TIMEOUT: "连接超时",
+                HealthStatus.ERROR: "错误",
+                HealthStatus.UNKNOWN: "未知",
+            }[health],
+        }
+
+    @app.get(f"{api_prefix}/mcp/secrets/list")
+    async def list_mcp_secrets(environment: str = "default"):
+        """列出存储的密钥（只显示名称，不显示值）"""
+        keys = enhanced_manager.secret_manager.list_keys(environment)
+        return {
+            "keys": keys,
+            "environment": environment,
+            "environments": list(enhanced_manager.secret_manager._secrets.keys()),
+        }
+
+    @app.post(f"{api_prefix}/mcp/secrets/set")
+    async def set_mcp_secret(request: dict):
+        """设置密钥"""
+        key = request.get("key")
+        value = request.get("value")
+        environment = request.get("environment", "default")
+
+        if not key:
+            raise HTTPException(status_code=400, detail="缺少 key")
+
+        enhanced_manager.secret_manager.set_secret(key, value, environment)
+        return {"success": True, "message": f"已保存 {key}"}
+
+    @app.post(f"{api_prefix}/mcp/secrets/add")
+    async def add_mcp_secret(request: dict):
+        """添加密钥"""
+        key = request.get("key")
+        value = request.get("value")
+        environment = request.get("environment", "default")
+
+        if not key or not value:
+            raise HTTPException(status_code=400, detail="缺少 key 或 value")
+
+        enhanced_manager.secret_manager.set_secret(key, value, environment)
+        return {"success": True, "message": f"已添加 {key}"}
+
+    @app.delete(f"{api_prefix}/mcp/secrets/{{key}}")
+    async def delete_mcp_secret(key: str, environment: str = "default"):
+        """删除密钥"""
+        success = enhanced_manager.secret_manager.delete_secret(key, environment)
+        if not success:
+            raise HTTPException(status_code=404, detail=f"密钥 {key} 不存在")
+        return {"success": True}
+
+    @app.post(f"{api_prefix}/mcp/secrets/set-environment")
+    async def set_mcp_environment(request: dict):
+        """设置当前环境"""
+        environment = request.get("environment", "default")
+        # 这里只是记录当前选择，实际注入时使用选择的环境
+        # 可以存储到全局或配置中
+        return {"success": True, "current_environment": environment}
+
+    @app.get(f"{api_prefix}/mcp/stats/{{server_id}}")
+    async def get_mcp_stats(server_id: str):
+        """获取服务器统计信息"""
+        stats = enhanced_manager.get_stats(server_id)
+        return {
+            "server_id": server_id,
+            "stats": stats.get(server_id, stats),
+        }
+
+    @app.post(f"{api_prefix}/mcp/confirm-operation")
+    async def confirm_mcp_operation(request: dict):
+        """确认待执行的高危操作"""
+        confirmation_id = request.get("confirmation_id")
+        if not confirmation_id:
+            raise HTTPException(status_code=400, detail="缺少 confirmation_id")
+
+        operation = enhanced_manager.confirm_pending_operation(confirmation_id)
+        if not operation:
+            raise HTTPException(status_code=404, detail="待确认操作不存在或已过期")
+
+        return {
+            "success": True,
+            "operation": operation,
+        }
+
+    # 预设组合包 - 预置场景模板
+    preset_bundles = {
+        "code-assistant": {
+            "name": "代码助手",
+            "description": "适合日常编程开发，包含文件系统、Git 和终端工具",
+            "mcp_servers": ["filesystem", "git", "terminal"],
+            "persona": {
+                "name": "代码助手",
+                "role": "专业软件开发工程师",
+                "description": "帮你编写、阅读、调试代码，管理项目",
+                "system_prompt": "你是一位经验丰富的软件开发工程师，擅长编写高质量代码，调试问题，重构项目，帮助用户高效开发。",
+            },
+        },
+        "research-assistant": {
+            "name": "学术研究助手",
+            "description": "适合文献检索和学术研究，包含 Arxiv 和网页搜索",
+            "mcp_servers": ["brave-search", "arxiv", "memory"],
+            "persona": {
+                "name": "研究助手",
+                "role": "学术研究助手",
+                "description": "帮助查找文献，总结论文，追踪最新研究进展",
+                "system_prompt": "你是一位专业的研究助手，擅长搜索学术文献，总结研究成果，帮助用户快速了解领域最新进展。",
+            },
+        },
+        "data-analyst": {
+            "name": "数据分析助手",
+            "description": "适合数据处理分析，包含 Pandas 和数据库访问",
+            "mcp_servers": ["postgres", "sqlite", "filesystem"],
+            "persona": {
+                "name": "数据分析助手",
+                "role": "数据分析专家",
+                "description": "帮助探索数据，生成分析报告，可视化结果",
+                "system_prompt": "你是一位专业的数据分析师，擅长探索数据、发现洞察、生成清晰的分析报告。",
+            },
+        },
+        "web-dev": {
+            "name": "Web 开发调试",
+            "description": "适合前端开发调试，包含 Puppeteer 浏览器自动化",
+            "mcp_servers": ["filesystem", "puppeteer"],
+            "persona": {
+                "name": "Web 开发工程师",
+                "role": "前端开发专家",
+                "description": "帮助开发和调试网页应用，自动化测试",
+                "system_prompt": "你是一位专业的前端开发工程师，精通现代 Web 技术栈，帮助开发调试网页应用，解决界面交互问题。",
+            },
+        },
+    }
+
+    @app.get(f"{api_prefix}/mcp/presets")
+    async def list_mcp_presets():
+        """列出所有预设组合包"""
+        result = []
+        for bundle_id, bundle in preset_bundles.items():
+            result.append(
+                {
+                    "id": bundle_id,
+                    **bundle,
+                }
+            )
+        return {"presets": result}
+
+    @app.post(f"{api_prefix}/mcp/presets/apply")
+    async def apply_mcp_preset(request: dict):
+        """应用预设组合包（从前端schema调用）"""
+        preset = request.get("preset")
+        if not preset:
+            raise HTTPException(status_code=400, detail="缺少 preset 参数")
+
+        # preset名称映射，前端使用下划线，后端使用连字符
+        preset_map = {
+            "code_assistant": "code-assistant",
+            "academic_search": "research-assistant",
+            "data_analysis": "data-analyst",
+            "web_automation": "web-dev",
+        }
+        bundle_id = preset_map.get(preset, preset)
+
+        if bundle_id not in preset_bundles:
+            raise HTTPException(status_code=404, detail=f"预设 {bundle_id} 不存在")
+
+        bundle = preset_bundles[bundle_id]
+        created = []
+
+        # 检查哪些需要安装
+        existing_configs = load_mcp_configs()
+
+        for mcp_id in bundle["mcp_servers"]:
+            if mcp_id in existing_configs:
+                created.append(
+                    {
+                        "id": mcp_id,
+                        "name": mcp_id.replace("-", " ").title(),
+                        "created": False,
+                        "message": "已存在",
+                    }
+                )
+                continue
+
+            # 根据常见MCP名称创建默认配置
+            default_configs = {
+                "filesystem": {
+                    "name": "Filesystem",
+                    "command": "npx",
+                    "args": ["-y", "@modelcontextprotocol/server-filesystem", str(root_dir)],
+                    "env": {},
+                    "description": "文件系统访问",
+                    "security": {
+                        "readonly": False,
+                        "allowed_paths": [str(root_dir)],
+                    },
+                },
+                "git": {
+                    "name": "Git",
+                    "command": "npx",
+                    "args": ["-y", "@modelcontextprotocol/server-git"],
+                    "env": {},
+                    "description": "Git 仓库操作",
+                },
+                "terminal": {
+                    "name": "Terminal",
+                    "command": "npx",
+                    "args": ["-y", "@modelcontextprotocol/server-terminal"],
+                    "env": {},
+                    "description": "终端命令执行",
+                    "security": {
+                        "confirm_on_dangerous": True,
+                    },
+                },
+                "brave-search": {
+                    "name": "Brave Search",
+                    "command": "npx",
+                    "args": ["-y", "@modelcontextprotocol/server-brave-search"],
+                    "env": {},
+                    "description": "Brave 网页搜索",
+                    "needs_token": True,
+                    "token_name": "BRAVE_API_KEY",
+                },
+                "arxiv": {
+                    "name": "Arxiv",
+                    "command": "npx",
+                    "args": ["-y", "mcp-arxiv-server"],
+                    "env": {},
+                    "description": "Arxiv 文献搜索",
+                },
+                "postgres": {
+                    "name": "PostgreSQL",
+                    "command": "npx",
+                    "args": ["-y", "@modelcontextprotocol/server-postgres", "${POSTGRES_CONNECTION_STRING}"],
+                    "env": {},
+                    "description": "PostgreSQL 数据库访问",
+                },
+                "sqlite": {
+                    "name": "SQLite",
+                    "command": "npx",
+                    "args": ["-y", "@modelcontextprotocol/server-sqlite"],
+                    "env": {},
+                    "description": "SQLite 数据库访问",
+                },
+                "puppeteer": {
+                    "name": "Puppeteer",
+                    "command": "npx",
+                    "args": ["-y", "@modelcontextprotocol/server-puppeteer"],
+                    "env": {},
+                    "description": "Chrome 浏览器自动化",
+                },
+                "memory": {
+                    "name": "Memory",
+                    "command": "npx",
+                    "args": ["-y", "@modelcontextprotocol/server-memory"],
+                    "env": {},
+                    "description": "知识图谱记忆存储",
+                },
+                "github": {
+                    "name": "GitHub",
+                    "command": "npx",
+                    "args": ["-y", "@modelcontextprotocol/server-github"],
+                    "env": {},
+                    "description": "GitHub API 访问",
+                    "needs_token": True,
+                    "token_name": "GITHUB_PERSONAL_ACCESS_TOKEN",
+                },
+            }
+
+            default_config = default_configs.get(
+                mcp_id,
+                {
+                    "name": mcp_id.replace("-", " ").title(),
+                    "command": "npx",
+                    "args": ["-y", f"mcp-{mcp_id}-server"],
+                    "env": {},
+                    "description": f"{mcp_id} MCP 服务器",
+                },
+            )
+
+            config = MCPConfig(
+                id=mcp_id,
+                enabled=True,
+                **default_config,
+            )
+
+            existing_configs[mcp_id] = config
+            created.append(
+                {
+                    "id": mcp_id,
+                    "name": default_config["name"],
+                    "created": True,
+                    "needs_token": default_config.get("needs_token", False),
+                    "token_name": default_config.get("token_name"),
+                }
+            )
+
+        # 保存配置
+        save_mcp_configs(existing_configs)
+
+        # 创建人格
+        persona_bundle = bundle.get("persona", {})
+        if persona_bundle:
+            created_persona = persona_store.create_persona(
+                full_name=persona_bundle.get("name", bundle["name"]),
+                role=persona_bundle.get("role", ""),
+                description=persona_bundle.get("description", bundle["description"]),
+                system_prompt=persona_bundle.get("system_prompt", ""),
+                mcp_enabled=True,
+                mcp_servers=bundle["mcp_servers"],
+            )
+        else:
+            created_persona = None
+
+        return {
+            "success": True,
+            "bundle_id": bundle_id,
+            "bundle_name": bundle["name"],
+            "created_servers": created,
+            "created_persona": created_persona.to_dict() if created_persona else None,
+        }
+
+    @app.get(f"{api_prefix}/mcp/export")
+    async def export_mcp_config():
+        """导出当前配置（所有MCP服务器 + 人格）"""
+        from datetime import datetime
+
+        export_data = {
+            "version": "1.0",
+            "created_at": datetime.now().isoformat(),
+            "personas": [],
+            "mcp_servers": [],
+        }
+
+        # 导出所有人格
+        personas = persona_store.list_personas()
+        for persona in personas:
+            export_data["personas"].append(persona.to_dict())
+
+        # 导出所有MCP服务器
+        configs = load_mcp_configs()
+        for server in configs.values():
+            export_data["mcp_servers"].append(server.dict())
+
+        return JSONResponse(
+            content=export_data,
+            headers={
+                "Content-Disposition": "attachment; filename=agnes-mcp-config.json",
+            },
+        )
+
+    @app.post(f"{api_prefix}/mcp/import")
+    async def import_mcp_config(file: UploadFile = File(...)):
+        """导入 MCP 配置包"""
+        import json
+
+        try:
+            content = await file.read()
+            import_data = json.loads(content.decode("utf-8"))
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"无效的 JSON 文件: {str(e)}")
+
+        imported = {
+            "personas": [],
+            "servers": [],
+            "conflicts": [],
+        }
+
+        existing_configs = load_mcp_configs()
+        existing_personas = {p.id: p for p in persona_store.list_personas()}
+
+        # 导入 MCP 服务器
+        for server_data in import_data.get("mcp_servers", import_data.get("mcp_servers", [])):
+            server_id = server_data.get("id")
+            if not server_id:
+                continue
+
+            if server_id in existing_configs:
+                imported["conflicts"].append(
+                    {
+                        "id": server_id,
+                        "name": server_data.get("name", server_id),
+                        "reason": "ID 已存在",
+                    }
+                )
+                continue
+
+            config = MCPConfig(**server_data)
+            existing_configs[server_id] = config
+            imported["servers"].append(
+                {
+                    "id": server_id,
+                    "name": config.name,
+                }
+            )
+
+        # 导入人格
+        for persona_data in import_data.get(
+            "personas", [] if "persona" in import_data else [import_data.get("persona")]
+        ):
+            if not persona_data:
+                continue
+
+            try:
+                persona_id = persona_data.get("id")
+                if persona_id and persona_id in existing_personas:
+                    imported["conflicts"].append(
+                        {
+                            "id": persona_id,
+                            "name": persona_data.get("full_name", persona_id),
+                            "reason": "ID 已存在",
+                        }
+                    )
+                    continue
+
+                # 创建新人格
+                created = persona_store.create_persona(
+                    full_name=persona_data.get("full_name", "Imported Persona"),
+                    nickname=persona_data.get("nickname", ""),
+                    role=persona_data.get("role", ""),
+                    personality=persona_data.get("personality", ""),
+                    scenario=persona_data.get("scenario", ""),
+                    system_prompt=persona_data.get("system_prompt", ""),
+                    llm_profile_id=persona_data.get("llm_profile_id"),
+                    description=persona_data.get("description", ""),
+                    enabled=persona_data.get("enabled", True),
+                    mcp_enabled=persona_data.get("mcp_enabled", True),
+                    mcp_servers=persona_data.get("mcp_servers", []),
+                    skills=persona_data.get("skills"),
+                )
+                imported["personas"].append(
+                    {
+                        "id": created.id,
+                        "name": created.full_name,
+                    }
+                )
+            except Exception as e:
+                imported["conflicts"].append(
+                    {
+                        "id": "persona",
+                        "reason": str(e),
+                    }
+                )
+
+        # 保存配置
+        save_mcp_configs(existing_configs)
+
+        return {
+            "success": True,
+            "imported": imported,
+            "message": f"导入完成: {len(imported['servers'])} 个服务器, {len(imported['personas'])} 个人格",
+        }
+
+    @app.post(f"{api_prefix}/mcp/export-bundle")
+    async def export_mcp_bundle(request: dict):
+        """导出 MCP 配置包（包含人格和MCP配置）"""
+        from datetime import datetime
+
+        persona_id = request.get("persona_id")
+        selected_servers = request.get("mcp_servers", [])
+
+        export_data = {
+            "version": "1.0",
+            "created_at": datetime.now().isoformat(),
+            "persona": None,
+            "mcp_servers": [],
+        }
+
+        if persona_id:
+            persona = persona_store.get_persona(persona_id)
+            if persona:
+                export_data["persona"] = persona.to_dict()
+                # 如果没有指定服务器，使用人格绑定的服务器
+                if not selected_servers and persona.mcp_servers:
+                    selected_servers = persona.mcp_servers
+
+        configs = load_mcp_configs()
+        for server_id in selected_servers:
+            if server_id in configs:
+                export_data["mcp_servers"].append(configs[server_id].dict())
+
+        return JSONResponse(
+            content=export_data,
+            headers={
+                "Content-Disposition": f"attachment; filename=agnes-mcp-bundle-{datetime.now().strftime('%Y%m%d-%H%M%S')}.json",
+            },
+        )
+
+    @app.post(f"{api_prefix}/mcp/import-bundle")
+    async def import_mcp_bundle(file: UploadFile = File(...)):
+        """导入 MCP 配置包"""
+        import json
+
+        try:
+            content = await file.read()
+            import_data = json.loads(content.decode("utf-8"))
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"无效的 JSON 文件: {str(e)}")
+
+        imported = {
+            "persona": None,
+            "servers": [],
+            "conflicts": [],
+        }
+
+        existing_configs = load_mcp_configs()
+
+        # 导入 MCP 服务器
+        for server_data in import_data.get("mcp_servers", []):
+            server_id = server_data.get("id")
+            if not server_id:
+                continue
+
+            if server_id in existing_configs:
+                imported["conflicts"].append(
+                    {
+                        "id": server_id,
+                        "name": server_data.get("name", server_id),
+                        "reason": "ID 已存在",
+                    }
+                )
+                continue
+
+            config = MCPConfig(**server_data)
+            existing_configs[server_id] = config
+            imported["servers"].append(
+                {
+                    "id": server_id,
+                    "name": config.name,
+                }
+            )
+
+        # 导入人格
+        persona_data = import_data.get("persona")
+        if persona_data:
+            try:
+                # 创建新人格
+                created = persona_store.create_persona(
+                    full_name=persona_data.get("full_name", "Imported Persona"),
+                    nickname=persona_data.get("nickname", ""),
+                    role=persona_data.get("role", ""),
+                    personality=persona_data.get("personality", ""),
+                    scenario=persona_data.get("scenario", ""),
+                    system_prompt=persona_data.get("system_prompt", ""),
+                    llm_profile_id=persona_data.get("llm_profile_id"),
+                    description=persona_data.get("description", ""),
+                    enabled=persona_data.get("enabled", True),
+                    mcp_enabled=persona_data.get("mcp_enabled", True),
+                    mcp_servers=persona_data.get("mcp_servers", []),
+                    skills=persona_data.get("skills"),
+                )
+                imported["persona"] = {
+                    "id": created.id,
+                    "name": created.full_name,
+                }
+            except Exception as e:
+                imported["conflicts"].append(
+                    {
+                        "id": "persona",
+                        "reason": str(e),
+                    }
+                )
+
+        # 保存配置
+        save_mcp_configs(existing_configs)
+
+        return {
+            "success": True,
+            "imported": imported,
+            "message": f"导入完成: {len(imported['servers'])} 个服务器, {1 if imported['persona'] else 0} 个人格",
+        }
+
     @app.get(f"{api_prefix}/mcp/tools/{{server_id}}")
     async def list_mcp_tools(server_id: str):
         """获取服务器的工具列表"""
@@ -1268,6 +1949,303 @@ def register_api_routes(app: FastAPI, api_prefix: str = "/api"):
         return {
             "tools": [t.dict() for t in conn.tools],
         }
+
+    @app.get(f"{api_prefix}/mcp/options")
+    async def get_mcp_options(value_field: str = "id", label_field: str = "name"):
+        """获取MCP服务器选项列表（供下拉选择使用）"""
+        configs = load_mcp_configs()
+        options = []
+        for config in configs.values():
+            if config.enabled:
+                value = getattr(config, value_field, config.id)
+                label = getattr(config, label_field, config.name)
+                options.append({"value": value, "label": label})
+        return options
+
+    @app.get(f"{api_prefix}/mcp/logs/list")
+    async def get_mcp_call_logs(
+        server_id: str = None,
+        success: str = None,
+        page: int = 1,
+        per_page: int = 50,
+    ):
+        """获取工具调用日志（分页支持Amis表格）"""
+        logs = enhanced_manager.get_call_logs(server_id)
+
+        # 根据success过滤
+        if success is not None:
+            success_bool = success.lower() == "true"
+            logs = [log for log in logs if log.get("success") == success_bool]
+
+        # 计算分页
+        total = len(logs)
+        start = (page - 1) * per_page
+        end = start + per_page
+        items = logs[start:end]
+
+        return {
+            "items": items,
+            "total": total,
+            "page": page,
+            "perPage": per_page,
+        }
+
+    @app.get(f"{api_prefix}/mcp/market")
+    async def get_mcp_market_list(
+        page: int = 1,
+        per_page: int = 12,
+    ):
+        """获取MCP工具市场列表"""
+        from web2.schemas.mcp import MCP_MARKET
+
+        # 构建表格数据
+        items = []
+        for item in MCP_MARKET:
+            row = {
+                "id": item["id"],
+                "name": item["name"],
+                "description": item.get("description", ""),
+                "category": item.get("category", "其他"),
+                "author": item.get("author", "community"),
+                "needs_token": item.get("needs_token", False),
+                "needs_path": item.get("needs_path", False),
+                "token_key": item.get("token_key", item.get("token_name", "")),
+            }
+            items.append(row)
+
+        # 计算分页
+        total = len(items)
+        start = (page - 1) * per_page
+        end = start + per_page
+        page_items = items[start:end]
+
+        return {
+            "items": page_items,
+            "total": total,
+            "page": page,
+            "perPage": per_page,
+        }
+
+    @app.get(f"{api_prefix}/mcp/logs/stats")
+    async def get_mcp_logs_stats():
+        """获取调用日志统计概览"""
+        return enhanced_manager.get_call_stats()
+
+    @app.delete(f"{api_prefix}/mcp/logs/{{log_id}}")
+    async def delete_mcp_log(log_id: str):
+        """删除单条日志"""
+        success = enhanced_manager.delete_call_log(log_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="日志不存在")
+        return {"success": True}
+
+    @app.delete(f"{api_prefix}/mcp/logs")
+    async def clear_mcp_logs():
+        """清空所有日志"""
+        enhanced_manager.clear_call_logs()
+        return {"success": True, "message": "所有日志已清空"}
+
+    # 预设API
+    from web2.schemas.mcp import MCP_PRESETS
+
+    @app.get(f"{api_prefix}/mcp/presets/list")
+    async def list_mcp_presets_full():
+        """列出所有预设模板（完整格式）"""
+        return {
+            "items": MCP_PRESETS,
+            "total": len(MCP_PRESETS),
+        }
+
+    @app.post(f"{api_prefix}/mcp/presets/apply/{{preset_id}}")
+    async def apply_mcp_preset_full(preset_id: str):
+        """应用预设模板"""
+        # 查找预设
+        preset = None
+        for p in MCP_PRESETS:
+            if p["id"] == preset_id:
+                preset = p
+                break
+
+        if not preset:
+            raise HTTPException(status_code=404, detail=f"预设 {preset_id} 不存在")
+
+        created = []
+        existing_configs = load_mcp_configs()
+
+        # 常见默认配置
+        default_configs = {
+            "filesystem": {
+                "name": "Filesystem",
+                "command": "npx",
+                "args": ["-y", "@modelcontextprotocol/server-filesystem", str(root_dir)],
+                "env": {},
+                "description": "文件系统访问",
+                "security": {
+                    "readonly": False,
+                    "allowed_paths": [str(root_dir)],
+                },
+            },
+            "git": {
+                "name": "Git",
+                "command": "npx",
+                "args": ["-y", "@modelcontextprotocol/server-git"],
+                "env": {},
+                "description": "Git 仓库操作",
+            },
+            "terminal": {
+                "name": "Terminal",
+                "command": "npx",
+                "args": ["-y", "@modelcontextprotocol/server-terminal"],
+                "env": {},
+                "description": "终端命令执行",
+                "security": {
+                    "confirm_on_dangerous": True,
+                },
+            },
+            "brave-search": {
+                "name": "Brave Search",
+                "command": "npx",
+                "args": ["-y", "@modelcontextprotocol/server-brave-search"],
+                "env": {},
+                "description": "Brave 网页搜索",
+            },
+            "arxiv": {
+                "name": "Arxiv",
+                "command": "npx",
+                "args": ["-y", "mcp-arxiv-server"],
+                "env": {},
+                "description": "Arxiv 文献搜索",
+            },
+            "postgres": {
+                "name": "PostgreSQL",
+                "command": "npx",
+                "args": ["-y", "@modelcontextprotocol/server-postgres"],
+                "env": {},
+                "description": "PostgreSQL 数据库访问",
+            },
+            "snowflake": {
+                "name": "Snowflake",
+                "command": "npx",
+                "args": ["-y", "@modelcontextprotocol/server-snowflake"],
+                "env": {},
+                "description": "Snowflake 数据仓库访问",
+            },
+            "bigquery": {
+                "name": "BigQuery",
+                "command": "npx",
+                "args": ["-y", "@modelcontextprotocol/server-bigquery"],
+                "env": {},
+                "description": "Google BigQuery 访问",
+            },
+            "redis": {
+                "name": "Redis",
+                "command": "uvx",
+                "args": ["mcp-redis-server"],
+                "env": {},
+                "description": "Redis 缓存访问",
+            },
+            "sqlite": {
+                "name": "SQLite",
+                "command": "npx",
+                "args": ["-y", "@modelcontextprotocol/server-sqlite"],
+                "env": {},
+                "description": "SQLite 数据库访问",
+            },
+            "puppeteer": {
+                "name": "Puppeteer",
+                "command": "npx",
+                "args": ["-y", "@modelcontextprotocol/server-puppeteer"],
+                "env": {},
+                "description": "Chrome 浏览器自动化",
+            },
+            "memory": {
+                "name": "Memory",
+                "command": "npx",
+                "args": ["-y", "@modelcontextprotocol/server-memory"],
+                "env": {},
+                "description": "知识图谱记忆存储",
+            },
+            "github": {
+                "name": "GitHub",
+                "command": "npx",
+                "args": ["-y", "@modelcontextprotocol/server-github"],
+                "env": {},
+                "description": "GitHub API 访问",
+            },
+        }
+
+        for mcp_id in preset.get("mcps", []):
+            if mcp_id in existing_configs:
+                created.append(
+                    {
+                        "id": mcp_id,
+                        "name": existing_configs[mcp_id].name,
+                        "created": False,
+                        "message": "已存在",
+                    }
+                )
+                continue
+
+            default_config = default_configs.get(
+                mcp_id,
+                {
+                    "name": mcp_id.replace("-", " ").title(),
+                    "command": "npx",
+                    "args": ["-y", f"mcp-{mcp_id}-server"],
+                    "env": {},
+                    "description": f"{mcp_id} MCP 服务器",
+                },
+            )
+
+            config = MCPConfig(
+                id=mcp_id,
+                enabled=True,
+                **default_config,
+            )
+
+            existing_configs[mcp_id] = config
+            created.append(
+                {
+                    "id": mcp_id,
+                    "name": default_config["name"],
+                    "created": True,
+                }
+            )
+
+        # 保存配置
+        save_mcp_configs(existing_configs)
+
+        return {
+            "success": True,
+            "preset_id": preset_id,
+            "preset_name": preset["name"],
+            "created": created,
+            "message": f"预设应用完成，创建 {len([c for c in created if c['created']])} 个服务器",
+        }
+
+    @app.post(f"{api_prefix}/mcp/presets/export")
+    async def export_mcp_preset(request: dict):
+        """导出自定义预设"""
+        name = request.get("name")
+        description = request.get("description", "")
+        mcp_ids = request.get("mcps", [])
+        category = request.get("category", "自定义")
+
+        export_data = {
+            "id": name.lower().replace(" ", "-").replace("_", "-"),
+            "name": name,
+            "description": description,
+            "category": category,
+            "mcps": mcp_ids,
+            "created_at": None,
+        }
+
+        return JSONResponse(
+            content=export_data,
+            headers={
+                "Content-Disposition": f"attachment; filename=agnes-mcp-preset-{export_data['id']}.json",
+            },
+        )
 
     # ============ Skill 调试 API ============
 
@@ -1328,40 +2306,40 @@ def register_api_routes(app: FastAPI, api_prefix: str = "/api"):
     @app.post(f"{api_prefix}/skills/upload")
     async def upload_skills(file: UploadFile = File(...)):
         """上传包含 skills 的 zip 压缩包"""
+        import shutil
         import tempfile
         import zipfile
-        import shutil
 
         # 验证文件类型
-        if not file.filename.endswith('.zip'):
+        if not file.filename.endswith(".zip"):
             raise HTTPException(status_code=400, detail="只支持 .zip 格式的压缩包")
 
         # 创建临时目录
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_zip = Path(temp_dir) / "skills.zip"
-            
+
             # 保存上传的文件
             with open(temp_zip, "wb") as buffer:
                 content = await file.read()
                 buffer.write(content)
-            
+
             # 解压到临时目录
             extract_dir = Path(temp_dir) / "extracted"
             extract_dir.mkdir()
-            
+
             try:
-                with zipfile.ZipFile(temp_zip, 'r') as zip_ref:
+                with zipfile.ZipFile(temp_zip, "r") as zip_ref:
                     zip_ref.extractall(extract_dir)
             except zipfile.BadZipFile:
                 raise HTTPException(status_code=400, detail="无效的 zip 文件")
-            
+
             # 查找所有 yaml 文件
             skills_dir = root_dir / "config" / "skills"
             skills_dir.mkdir(parents=True, exist_ok=True)
-            
+
             uploaded_count = 0
             errors = []
-            
+
             # 遍历解压的文件
             for yaml_file in extract_dir.rglob("*.yaml"):
                 try:
@@ -1371,7 +2349,7 @@ def register_api_routes(app: FastAPI, api_prefix: str = "/api"):
                     uploaded_count += 1
                 except Exception as e:
                     errors.append(f"{yaml_file.name}: {str(e)}")
-            
+
             # 也查找 .yml 文件
             for yaml_file in extract_dir.rglob("*.yml"):
                 try:
@@ -1380,20 +2358,21 @@ def register_api_routes(app: FastAPI, api_prefix: str = "/api"):
                     uploaded_count += 1
                 except Exception as e:
                     errors.append(f"{yaml_file.name}: {str(e)}")
-            
+
             # 重新加载 skills
             if uploaded_count > 0:
                 try:
                     from agnes.skills import load_and_register_all
+
                     load_and_register_all(skills_dir)
                 except Exception as e:
                     errors.append(f"重新加载失败: {str(e)}")
-            
+
             return {
                 "success": True,
                 "uploaded_count": uploaded_count,
                 "errors": errors if errors else None,
-                "message": f"成功上传 {uploaded_count} 个 Skill 文件"
+                "message": f"成功上传 {uploaded_count} 个 Skill 文件",
             }
 
 

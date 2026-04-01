@@ -42,7 +42,11 @@ def show_chat():
                 if status and status.get("llm_provider"):
                     cfg = status.get("llm_config") or {}
                     # 获取当前激活的人格名称
-                    persona_name = status.get("active_persona", {}).get("full_name", "") if status.get("has_active_persona") else ""
+                    persona_name = (
+                        status.get("active_persona", {}).get("full_name", "")
+                        if status.get("has_active_persona")
+                        else ""
+                    )
                     # 构建显示文本：供应商类型-供应商ID(模型ID)|人格名称
                     provider_type = cfg.get("provider", "")
                     profile_id = status.get("active_profile_name", "")

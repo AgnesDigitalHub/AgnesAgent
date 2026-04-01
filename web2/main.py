@@ -28,12 +28,15 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def create_app(reload: bool = False) -> FastAPI:
+def create_app(reload: bool = False, add_spa_fallback: bool = True) -> FastAPI:
     """
     创建 FastAPI 应用
 
     Args:
         reload: 开发模式下每次请求重新构建 schema
+        add_spa_fallback: 是否添加 SPA 兜底路由
+            - True: 独立运行时使用，保证前端路由正常工作
+            - False: 集成到其他 FastAPI 应用时使用，避免路由冲突
     """
     app = FastAPI(title="Agnes Web2", version="2.0.0")
 
@@ -61,12 +64,13 @@ def create_app(reload: bool = False) -> FastAPI:
         get_built_amis_app()
 
     # 注册所有 AMIS 路由
-    # 因为 app.mount("/web2", web2_app)，所以实际 API 路径是 /web2/api/xxx
+    # 独立运行时需要添加兜底路由，集成到主应用时会由主应用处理（main.py 中直接 include_router）
+    # 当独立运行时，兜底路由保证 SPA 前端路由正常工作
     # 路由结构：
     #   GET / -> HTML 入口（匹配 /web2/）
     #   GET /api/amis/schema -> 顶层 App 配置（实际路径 /web2/api/amis/schema）
     #   GET /api/pages/{page_name} -> 单个页面 schema（实际路径 /web2/api/pages/{page_name}）
-    register_amis_routes(app, api_prefix="/api")
+    register_amis_routes(app, api_prefix="/api", add_spa_fallback=add_spa_fallback)
 
     logger.info("Web2 FastAPI 应用创建完成（异步按需加载模式）")
     return app

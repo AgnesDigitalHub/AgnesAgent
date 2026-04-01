@@ -4,6 +4,15 @@ MCP (Model Context Protocol) 集成模块
 """
 
 from agnes.mcp.client import MCPClient, MCPServerConnection
+from agnes.mcp.manager import (
+    DependencyInstaller,
+    EncryptedSecretManager,
+    HealthStatus,
+    MCPEnhancedManager,
+    MCPSecurityConfig,
+    ToolCallRecord,
+    enhanced_manager,
+)
 from agnes.mcp.registry import MCPRegistry, mcp_registry
 from agnes.mcp.server import AgnesMCPServer, create_default_server
 
@@ -14,4 +23,12 @@ __all__ = [
     "MCPRegistry",
     "create_default_server",
     "mcp_registry",
+    # Enhanced management
+    "MCPEnhancedManager",
+    "MCPSecurityConfig",
+    "HealthStatus",
+    "DependencyInstaller",
+    "EncryptedSecretManager",
+    "ToolCallRecord",
+    "enhanced_manager",
 ]
