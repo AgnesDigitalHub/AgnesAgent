@@ -1,7 +1,4 @@
-"""
-Agent 协调器 - Agnes 核心
-整合 LLM、Skills、Memory、Persona、Planning，提供统一的 Agent 接口
-"""
+"""Agent 协调器 - 整合 LLM、Skills、Memory、Persona、Planning"""
 
 import logging
 from collections.abc import AsyncGenerator
@@ -25,8 +22,6 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class AgentResponse:
-    """Agent 响应"""
-
     content: str
     success: bool = True
     tool_calls: list[dict[str, Any]] = field(default_factory=list)
@@ -35,8 +30,6 @@ class AgentResponse:
 
 @dataclass
 class AgentState:
-    """Agent 运行状态"""
-
     is_running: bool = False
     current_step: int = 0
     total_steps: int = 0
@@ -44,10 +37,9 @@ class AgentState:
 
 
 class Agent:
-    """
-    Agnes Agent 协调器
+    """Agent 协调器
 
-    核心职责：
+    职责：
     1. 接收用户输入，协调 LLM 进行推理
     2. 管理工具调用（Skills + MCP）
     3. 维护对话历史和上下文

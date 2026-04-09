@@ -1,8 +1,4 @@
-"""
-简单向量存储实现
-基于内存的向量存储，使用余弦相似度计算
-适合测试和小规模应用，无需外部依赖
-"""
+"""内存向量存储，支持缓存和索引加速"""
 
 import logging
 import math
@@ -15,25 +11,10 @@ logger = logging.getLogger(__name__)
 
 
 class SimpleVectorStore(VectorStore):
-    """
-    简单内存向量存储
-
-    使用余弦相似度进行向量搜索，所有数据存储在内存中
-    适合：
-    - 开发和测试
-    - 小规模应用（< 10000 条记忆）
-    - 无需外部依赖的场景
-    """
+    """内存向量存储，支持缓存和索引"""
 
     def __init__(self, name: str = "default", enable_cache: bool = True, enable_index: bool = True):
-        """
-        初始化存储
-
-        Args:
-            name: 存储名称（用于区分多个存储实例）
-            enable_cache: 是否启用查询缓存
-            enable_index: 是否启用索引加速
-        """
+        """初始化存储"""
         self.name = name
         self._storage: dict[str, MemoryEntry] = {}
         self._cache = LRUCache(maxsize=100) if enable_cache else None
@@ -47,7 +28,6 @@ class SimpleVectorStore(VectorStore):
         logger.info(f"SimpleVectorStore '{name}' initialized (cache={'enabled' if enable_cache else 'disabled'}, index={'enabled' if enable_index else 'disabled'})")
 
     def _add_to_index(self, entry: MemoryEntry) -> None:
-        """将条目添加到索引"""
         if not self._enable_index:
             return
 
@@ -66,7 +46,6 @@ class SimpleVectorStore(VectorStore):
             self._vector_norms[entry.id] = math.sqrt(sum(x * x for x in entry.embedding))
 
     def _remove_from_index(self, entry_id: str) -> None:
-        """从索引中移除条目"""
         if not self._enable_index:
             return
 
@@ -84,11 +63,6 @@ class SimpleVectorStore(VectorStore):
         self._vector_norms.pop(entry_id, None)
 
     def _get_candidates_by_filter(self, filter_dict: dict[str, Any] | None) -> set[str] | None:
-        """
-        根据过滤条件获取候选条目 ID
-
-        使用索引加速过滤，返回 None 表示需要扫描全部
-        """
         if not self._enable_index or not filter_dict:
             return None
 

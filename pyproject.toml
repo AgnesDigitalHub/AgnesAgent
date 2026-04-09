@@ -5,38 +5,65 @@ description = "Highly extensible, cross-platform AI agent infrastructure"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "aiohttp>=3.9.0",
-    "numpy>=1.24.0",
-    "sounddevice>=0.4.6",
-    "soundfile>=0.12.1",
-    "pyyaml>=6.0.1",
-    "openai>=1.0.0",
+    # Web Framework
     "fastapi>=0.100.0,<0.110.0",
     "uvicorn>=0.29.0",
-    "jinja2>=3.1.0",
-    "python-multipart>=0.0.9",
     "websockets>=12.0",
-    "pydantic>=2.0.0",
+    "python-multipart>=0.0.9",
+    "jinja2>=3.1.0",
+    # HTTP Client
     "httpx>=0.27.0",
-    "fastapi-amis-admin>=0.6.0",
+    "aiohttp>=3.9.0",
+    # Data & Config
+    "pydantic>=2.0.0",
+    "pyyaml>=6.0.1",
+    # LLM & MCP
+    "openai>=1.0.0",
     "mcp>=1.0.0",
+    # Admin UI
+    "fastapi-amis-admin>=0.6.0",
+    # Telemetry
     "opentelemetry-api>=1.24.0",
     "opentelemetry-sdk>=1.24.0",
-    "psutil>=6.0.0",
-    "chromadb",
-    "sentence-transformers",
 ]
 
 [project.optional-dependencies]
-
-whisper = [
+# Vector Database & Embeddings
+memory = [
+    "chromadb>=0.5.0",
+    "sentence-transformers>=2.0.0",
+    "numpy>=1.24.0",
+]
+# Audio Processing
+audio = [
+    "sounddevice>=0.4.6",
+    "soundfile>=0.12.1",
     "whisper>=1.1.10",
 ]
+# Screen & Input Automation
 gameautomation = [
     "mss>=9.0.0",
     "easyocr>=1.7.0",
     "pynput>=1.7.6",
     "pillow>=10.0.0",
+]
+# System Monitoring
+monitor = [
+    "psutil>=6.0.0",
+]
+# All optional dependencies
+all = [
+    "chromadb>=0.5.0",
+    "sentence-transformers>=2.0.0",
+    "numpy>=1.24.0",
+    "sounddevice>=0.4.6",
+    "soundfile>=0.12.1",
+    "whisper>=1.1.10",
+    "mss>=9.0.0",
+    "easyocr>=1.7.0",
+    "pynput>=1.7.6",
+    "pillow>=10.0.0",
+    "psutil>=6.0.0",
 ]
 
 [build-system]
@@ -82,13 +109,18 @@ reportOptionalCall = false
 
 [dependency-groups]
 dev = [
+    # Type Checking
     "basedpyright>=1.38.3",
+    # Testing
     "pytest>=7.4.0",
     "pytest-asyncio>=0.21.0",
     "pytest-cov>=4.1.0",
     "pytest-mock>=3.11.0",
     "pytest-benchmark>=4.0.0",
-    "httpx>=0.27.0",
+    # HTTP Mock
     "respx>=0.20.0",
+    # Linting & Formatting
     "ruff>=0.15.8",
+    # Build
+    "hatchling>=1.24.0",
 ]
