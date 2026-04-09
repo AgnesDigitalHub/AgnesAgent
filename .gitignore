@@ -76,3 +76,7 @@ data/**/*
 !data/README.md
 !data/.gitkeep
 !data/**/.gitkeep
+
+# Documentation - preserve all docs
+!docs/
+!docs/**/*.md

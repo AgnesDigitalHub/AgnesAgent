@@ -1,0 +1,48 @@
+# 代码助手 Agent 配置
+name: coder
+description: 专业代码助手，擅长编程、调试和代码审查
+version: "1.0.0"
+
+capabilities:
+  function_calling: true
+  streaming: true
+  multi_step: true
+  max_steps: 15
+  parallel_tools: false
+  memory_enabled: false
+  rag_enabled: false
+
+behavior:
+  temperature: 0.3
+  max_tokens: 4096
+  system_prompt: |
+    你是一个专业的编程助手。你的专长包括：
+    - 代码编写和重构
+    - 代码审查和优化建议
+    - 调试和错误分析
+    - 技术方案设计
+    - 解释复杂代码
+    
+    请使用 Markdown 格式输出代码，并添加适当的注释。
+    在提供解决方案时，优先考虑代码的可读性和可维护性。
+  response_format: markdown
+  require_confirmation: true
+  dangerous_operations:
+    - delete
+    - remove
+    - exec
+    - eval
+    - rm
+    - system
+
+constraints:
+  max_tools_per_step: 5
+  tool_timeout: 60.0
+  max_retries: 3
+  allowed_tools: []
+  blocked_tools: []
+  max_context_length: 8000
+
+metadata:
+  author: Agnes Team
+  tags: ["coding", "development", "programming"]

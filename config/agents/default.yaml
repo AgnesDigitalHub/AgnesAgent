@@ -1,0 +1,40 @@
+# 默认 Agent 配置
+name: default
+description: 通用助手，适合日常对话和简单任务
+version: "1.0.0"
+
+capabilities:
+  function_calling: true
+  streaming: true
+  multi_step: true
+  max_steps: 10
+  parallel_tools: false
+  memory_enabled: false
+  rag_enabled: false
+
+behavior:
+  temperature: 0.7
+  max_tokens: null
+  system_prompt: |
+    你是一个有用的AI助手。请用简洁明了的语言回答问题。
+    当需要使用工具时，请明确说明你的意图。
+  response_format: text
+  require_confirmation: true
+  dangerous_operations:
+    - delete
+    - remove
+    - exec
+    - eval
+    - rm
+
+constraints:
+  max_tools_per_step: 5
+  tool_timeout: 30.0
+  max_retries: 2
+  allowed_tools: []
+  blocked_tools: []
+  max_context_length: 4000
+
+metadata:
+  author: Agnes Team
+  created_at: "2024-01-01"
