@@ -22,30 +22,43 @@ menus:
     icon: "home"
     url: "/dashboard"
 
-  - name: "models"
-    label: "模型管理"
-    icon: "smart_toy"
-    url: "/models"
+  - name: "interaction"
+    label: "对话交互"
+    icon: "chat_bubble"
+    children:
+      - name: "chat"
+        label: "对话聊天"
+        icon: "chat"
+        url: "/chat"
+      - name: "prompts"
+        label: "Prompt IDE"
+        icon: "edit_note"
+        url: "/prompts"
 
-  - name: "personas"
-    label: "人格管理"
-    icon: "face"
-    url: "/personas"
-
-  - name: "chat"
-    label: "对话"
-    icon: "chat"
-    url: "/chat"
-
-  - name: "prompts"
-    label: "Prompt IDE"
-    icon: "edit_note"
-    url: "/prompts"
-
-  - name: "tools"
-    label: "工具/插件"
-    icon: "build"
-    url: "/tools"
+  - name: "resources"
+    label: "资源管理"
+    icon: "folder_open"
+    children:
+      - name: "models"
+        label: "模型管理"
+        icon: "smart_toy"
+        url: "/models"
+      - name: "personas"
+        label: "人格管理"
+        icon: "face"
+        url: "/personas"
+      - name: "knowledge"
+        label: "知识库/RAG"
+        icon: "menu_book"
+        url: "/knowledge"
+      - name: "tools"
+        label: "工具管理"
+        icon: "build"
+        url: "/tools"
+      - name: "skills"
+        label: "Skills 管理"
+        icon: "extension"
+        url: "/skills"
 
   - name: "mcp"
     label: "MCP 管理"
@@ -72,40 +85,39 @@ menus:
         icon: "history"
         url: "/mcp/logs"
 
-  - name: "skill"
-    label: "Skill 调试器"
-    icon: "bug_report"
-    url: "/skill"
+  - name: "development"
+    label: "开发调试"
+    icon: "code"
+    children:
+      - name: "skill_debug"
+        label: "Skill 调试器"
+        icon: "bug_report"
+        url: "/skill_debug"
+      - name: "workflows"
+        label: "Workflow 编排"
+        icon: "account_tree"
+        url: "/workflows"
+      - name: "logs"
+        label: "运行日志"
+        icon: "article"
+        url: "/logs"
 
-  - name: "knowledge"
-    label: "知识库/RAG"
-    icon: "menu_book"
-    url: "/knowledge"
-
-  - name: "workflows"
-    label: "Workflow 编排"
-    icon: "account_tree"
-    url: "/workflows"
-
-  - name: "logs"
-    label: "运行日志"
-    icon: "article"
-    url: "/logs"
-
-  - name: "publish"
-    label: "API/集成发布"
-    icon: "publish"
-    url: "/publish"
-
-  - name: "users"
-    label: "用户权限"
-    icon: "group"
-    url: "/users"
-
-  - name: "settings"
-    label: "系统设置"
-    icon: "settings"
-    url: "/settings"
+  - name: "system"
+    label: "系统管理"
+    icon: "settings_applications"
+    children:
+      - name: "publish"
+        label: "API/集成发布"
+        icon: "publish"
+        url: "/publish"
+      - name: "users"
+        label: "用户权限"
+        icon: "group"
+        url: "/users"
+      - name: "settings"
+        label: "系统设置"
+        icon: "settings"
+        url: "/settings"
 
 # 页面定义
 # schema 字段将在应用启动时由 Pydantic 动态构建并嵌入
@@ -163,7 +175,15 @@ pages:
     schema: null
 
   tools:
-    title: "工具/插件"
+    title: "工具管理"
+    schema: null
+
+  skills:
+    title: "Skills 管理"
+    schema: null
+
+  skill_debug:
+    title: "Skill 调试器"
     schema: null
 
   workflows:

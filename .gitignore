@@ -70,3 +70,9 @@ config/stats/*
 # Local IDE
 .vscode/
 .idea/
+
+# User custom data - should not be uploaded
+data/**/*
+!data/README.md
+!data/.gitkeep
+!data/**/.gitkeep

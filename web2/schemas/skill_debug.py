@@ -9,7 +9,7 @@ from pathlib import Path
 
 def _load_schema():
     """从JSON文件加载schema"""
-    schema_file = Path(__file__).parent / "skill.json"
+    schema_file = Path(__file__).parent / "skill_debug.json"
     try:
         with open(schema_file, encoding="utf-8") as f:
             return json.load(f)
@@ -18,6 +18,6 @@ def _load_schema():
         return {}
 
 
-def get_skill_schema() -> dict:
+def get_skill_debug_schema() -> dict:
     """获取 Skill 调试器页面 amis Schema"""
     return _load_schema()

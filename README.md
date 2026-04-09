@@ -21,7 +21,7 @@
 
 </div>
 
-> **Everyone may be Agnes with Agent** — AgnesAgent 致力于让每个人都能拥有自己的 AI Agent 分身。
+> **Everyone may be Agnes with Agent** — 每个人都能拥有自己的 AI Agent。
 
 AgnesAgent 是一个开源的 AI Agent 基础框架，专注于构建可扩展的智能体能力。目前已完成核心 LLM 对话基础设施，并正在扩展工具调用、MCP 能力和游戏自动化支持。无论是桌面助手、自动化工作流，还是游戏 Agent，AgnesAgent 都能为你提供可靠的底层支持。
 

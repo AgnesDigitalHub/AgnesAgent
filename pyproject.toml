@@ -26,11 +26,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-openvino = [
-    "openvino>=2024.0.0",
-    "transformers>=4.36.0",
-    "torch>=2.1.0",
-]
+
 whisper = [
     "whisper>=1.1.10",
 ]

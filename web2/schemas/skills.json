@@ -1,0 +1,156 @@
+{
+  "type": "page",
+  "title": "Skills 管理",
+  "body": [
+    {
+      "type": "crud",
+      "api": {
+        "method": "get",
+        "url": "/api/skills/list",
+        "responseData": {
+          "items": "${items}",
+          "total": "$total"
+        }
+      },
+      "perPage": 12,
+      "headerToolbar": [
+        "reload",
+        {
+          "type": "button",
+          "label": "新建 Skill",
+          "level": "primary",
+          "actionType": "dialog",
+          "dialog": {
+            "title": "新建 Skill",
+            "body": {
+              "type": "form",
+              "api": "/api/skills/create",
+              "body": [
+                {
+                  "type": "input-text",
+                  "name": "name",
+                  "label": "Skill 名称",
+                  "required": true
+                },
+                {
+                  "type": "textarea",
+                  "name": "description",
+                  "label": "描述"
+                },
+                {
+                  "type": "input-text",
+                  "name": "category",
+                  "label": "分类"
+                },
+                {
+                  "type": "switch",
+                  "name": "enabled",
+                  "label": "启用",
+                  "value": true
+                }
+              ],
+              "buttons": [
+                {
+                  "type": "submit",
+                  "label": "创建",
+                  "primary": true
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "mode": "cards",
+      "card": {
+        "title": "${name}",
+        "subTitle": "${category || '未分类'} · ${enabled ? '启用' : '禁用'}",
+        "body": [
+          {
+            "type": "tpl",
+            "tpl": "<div style=\"color: #999; font-size: 13px; margin: 8px 0;\">${description || '无描述'}</div>"
+          },
+          {
+            "type": "flex",
+            "className": "flex justify-between items-center mt-4",
+            "items": [
+              {
+                "type": "tag",
+                "label": "${enabled ? '启用' : '禁用'}",
+                "level": "${enabled ? 'success' : 'default'}"
+              },
+              {
+                "type": "group",
+                "buttons": [
+                  {
+                    "type": "button",
+                    "label": "编辑",
+                    "level": "info",
+                    "actionType": "dialog",
+                    "dialog": {
+                      "title": "编辑 Skill",
+                      "body": {
+                        "type": "form",
+                        "api": "put:/api/skills/save/${id}",
+                        "initApi": "get:/api/skills/get/${id}",
+                        "body": [
+                          {
+                            "type": "input-text",
+                            "name": "name",
+                            "label": "Skill 名称",
+                            "required": true
+                          },
+                          {
+                            "type": "textarea",
+                            "name": "description",
+                            "label": "描述"
+                          },
+                          {
+                            "type": "input-text",
+                            "name": "category",
+                            "label": "分类"
+                          },
+                          {
+                            "type": "switch",
+                            "name": "enabled",
+                            "label": "启用"
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "type": "button",
+                    "label": "${enabled ? '禁用' : '启用'}",
+                    "level": "${enabled ? 'default' : 'success'}",
+                    "actionType": "ajax",
+                    "api": "put:/api/skills/save/${id}",
+                    "data": {
+                      "enabled": "${!enabled}"
+                    }
+                  },
+                  {
+                    "type": "button",
+                    "label": "删除",
+                    "level": "danger",
+                    "actionType": "ajax",
+                    "confirmText": "确定要删除这个 Skill 吗？",
+                    "api": "delete:/api/skills/delete/${id}"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "bulkActions": [
+        {
+          "label": "批量删除",
+          "type": "button",
+          "level": "danger",
+          "api": "/api/skills/bulk-delete",
+          "confirmText": "确定要删除选中吗？"
+        }
+      ]
+    }
+  ]
+}

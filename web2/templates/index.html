@@ -116,32 +116,81 @@
                             <nav style="padding: 10px 0;">
                 `;
 
-                // 添加每个菜单项
-                finalAppConfig.pages.forEach((p, i) => {
-                    const icon = p.icon || '';
-                    // 跳过首页，因为它在初始加载时已经渲染了
-                    if (p.url === '/') {
-                        return;
-                    }
-                    // 从 url 提取 pageName 用于 API 请求
-                    // url 格式是 "/personas" => pageName = "personas"
-                    const pageName = p.url.replace(/^\//, '');
-                    navHtml += `
-                        <div class="amis-AsideNav-item" style="margin: 2px 0;">
-                            <a href="javascript:void(0);" data-page-name="${pageName}" data-page-url="${p.url}" style="
-                                display: block;
-                                padding: 12px 20px;
-                                color: rgba(255,255,255,0.85);
-                                text-decoration: none;
-                                transition: background-color 0.2s;
-                            " onmouseover="this.style.backgroundColor='#242e3e'"
-                              onmouseout="this.style.backgroundColor='transparent'">
-                                ${icon ? `<i class="${icon}" style="margin-right: 8px;"></i>` : ''}
-                                <span>${p.label}</span>
-                            </a>
-                        </div>
-                    `;
-                });
+                // 递归添加菜单项（支持嵌套分组）
+                function renderMenuItems(items, indent = 0) {
+                    let html = '';
+                    items.forEach((p) => {
+                        const icon = p.icon || '';
+                        // 如果有 children，渲染为折叠分组
+                        if (p.children && p.children.length > 0) {
+                            // 分组标题（不可点击，只展开子菜单）
+                            const chevronHtml = p.children.length > 0 ? '<i class="fa fa-chevron-down" style="float: right; margin-top: 4px; font-size: 12px;"></i>' : '';
+                            html += `
+                                <div class="amis-AsideNav-item-group" style="margin: 2px 0; padding-left: ${indent * 15}px;">
+                                    <div style="
+                                        display: block;
+                                        padding: 10px 20px;
+                                        color: rgba(255,255,255,0.7);
+                                        font-weight: 600;
+                                        font-size: 13px;
+                                    ">
+                                        ${icon ? `<i class="${icon}" style="margin-right: 8px;"></i>` : ''}
+                                        <span>${p.label}</span>
+                                        ${chevronHtml}
+                                    </div>
+                                    <div style="padding-left: 10px;">
+                                        ${renderMenuItems(p.children, indent + 1)}
+                                    </div>
+                                </div>
+                            `;
+                        } else if (p.url) {
+                            // 跳过首页，因为它在初始加载时已经渲染了
+                            if (p.url === '/') {
+                                return;
+                            }
+                            // 从 url 提取 pageName 用于 API 请求
+                            // url 格式是 "/personas" => pageName = "personas"
+                            const pageName = p.url.replace(/^\//, '');
+                            html += `
+                                <div class="amis-AsideNav-item" style="margin: 2px 0; padding-left: ${indent * 15}px;">
+                                    <a href="javascript:void(0);" data-page-name="${pageName}" data-page-url="${p.url}" style="
+                                        display: block;
+                                        padding: 12px 20px;
+                                        color: rgba(255,255,255,0.85);
+                                        text-decoration: none;
+                                        transition: background-color 0.2s;
+                                    " onmouseover="this.style.backgroundColor='#242e3e'"
+                                      onmouseout="this.style.backgroundColor='transparent'">
+                                        ${icon ? `<i class="${icon}" style="margin-right: 8px;"></i>` : ''}
+                                        <span>${p.label}</span>
+                                    </a>
+                                </div>
+                            `;
+                        }
+                    });
+                    return html;
+                }
+
+                // 在最顶部添加首页按钮（跳转到 /）
+                navHtml += `
+                    <div class="amis-AsideNav-item" style="margin: 2px 0;">
+                        <a href="javascript:void(0);" data-page-name="index" data-page-url="/" style="
+                            display: block;
+                            padding: 12px 20px;
+                            color: rgba(255,255,255,0.85);
+                            text-decoration: none;
+                            transition: background-color 0.2s;
+                        " onmouseover="this.style.backgroundColor='#242e3e'"
+                          onmouseout="this.style.backgroundColor='transparent'">
+                            <i class="fa fa-home" style="margin-right: 8px;"></i>
+                            <span>首页</span>
+                        </a>
+                    </div>
+                    <div style="border-bottom: 1px solid #2c3e50; margin: 8px 0;"></div>
+                `;
+
+                // 递归渲染所有菜单项（支持嵌套分组）
+                navHtml += renderMenuItems(finalAppConfig.pages);
 
                 navHtml += `
                             </nav>
@@ -199,9 +248,39 @@
                     currentPageName = pageName;
                     setActiveMenuItem(pageName);
 
+                    // 首页特殊处理：显示初始欢迎页，不需要请求 API
+                    if (pageName === 'index') {
+                        // 更新浏览器地址栏（不刷新页面）
+                        if (window.history && window.history.pushState) {
+                            window.history.pushState({ pageName }, '', '/');
+                        }
+
+                        // 找到初始配置中的首页 schema 重新渲染（和页面刚加载时一样）
+                        const homePage = window.finalAppConfig.pages.find(p => p.url === '/');
+                        if (homePage && homePage.schema) {
+                            contentTarget.innerHTML = '';
+                            const amis = amisRequire('amis/embed');
+                            amis.embed('#amis-main-content', homePage.schema, {}, {
+                                theme: 'cxd',
+                                locale: 'zh-CN'
+                            });
+                        } else {
+                            // 如果没有找到，fallback 到欢迎文字
+                            contentTarget.innerHTML = `<h1>欢迎使用 ${window.finalAppConfig.brandName}</h1><p>请点击左侧导航选择功能</p>`;
+                        }
+                        return;
+                    }
+
+                    // 普通页面：请求 API 获取 schema
+                    const apiPageName = pageName;
+
                     // 更新浏览器地址栏（不刷新页面）
                     if (window.history && window.history.pushState) {
-                        window.history.pushState({ pageName }, '', `/${pageName}`);
+                        if (pageName === 'index') {
+                            window.history.pushState({ pageName }, '', '/');
+                        } else {
+                            window.history.pushState({ pageName }, '', `/${pageName}`);
+                        }
                     }
 
                     // 显示加载中
@@ -212,8 +291,9 @@
                     `;
 
                     try {
-                        // 异步请求页面 schema（添加时间戳防止缓存）
-                        const response = await fetch(`/api/pages/${pageName}?_t=${Date.now()}`);
+                        // 异步请求页面 schema（添加时间戳防止缓存）- API 路径来自全局配置中的 apiPrefix
+                        const apiPrefix = window.finalAppConfig?.apiPrefix || '/api';
+                        const response = await fetch(`${apiPrefix}/pages/${apiPageName}?_t=${Date.now()}`);
                         if (!response.ok) {
                             throw new Error(`HTTP ${response.status}: ${await response.text()}`);
                         }
@@ -227,12 +307,12 @@
                             locale: 'zh-CN'
                         });
                     } catch (e) {
-                        console.error(`❌ 加载页面 ${pageName} 失败:`, e);
+                        console.error(`❌ 加载页面 ${apiPageName} 失败:`, e);
                         contentTarget.innerHTML = `
                             <div style="color: #ff4d4f; padding: 20px; background: #fff1f0; border: 1px solid #ffa39e; border-radius: 4px;">
                                 <h3>加载页面失败</h3>
                                 <p>${e.message}</p>
-                                <p>API 路径: /api/pages/${pageName}</p>
+                                <p>API 路径: ${apiPrefix}/pages/${apiPageName}</p>
                             </div>
                         `;
                     }
@@ -262,6 +342,8 @@
                     setTimeout(() => loadPage(initialPath), 100);
                 }
 
+                // 将最终配置保存到 window 供后续使用（需要 apiPrefix）
+                window.finalAppConfig = finalAppConfig;
             } catch (e) {
                 console.error("初始化崩溃:", e);
                 const root = document.getElementById('root');

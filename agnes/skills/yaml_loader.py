@@ -154,31 +154,51 @@ class YAMLSkill(BaseSkill):
 
 
 class YAMLSkillLoader:
-    """YAML Skill 加载器，从目录加载所有 YAML Skill"""
+    """YAML Skill 加载器，从目录加载所有 YAML Skill
+    同时从 config/skills（系统示例）和 data/skills（用户自定义）加载
+    """
 
     def __init__(self, skills_dir: Path | None = None):
         from agnes.config import get_project_root
 
-        if skills_dir is None:
-            root = get_project_root()
-            skills_dir = root / "config" / "skills"
-        self.skills_dir = skills_dir
         self._loaded_skills: dict[str, YAMLSkill] = {}
+        self._skill_dirs: list[Path] = []
+
+        if skills_dir is not None:
+            # 如果指定了目录，只加载指定目录
+            self._skill_dirs = [skills_dir]
+        else:
+            # 默认同时加载系统示例和用户自定义
+            root = get_project_root()
+            # 系统内置示例 - config/skills
+            config_skills = root / "config" / "skills"
+            if config_skills.exists():
+                self._skill_dirs.append(config_skills)
+            # 用户自定义技能 - data/skills
+            data_skills = root / "data" / "skills"
+            if data_skills.exists():
+                self._skill_dirs.append(data_skills)
 
     def load_all(self) -> list[YAMLLoadResult]:
-        """加载目录下所有 YAML Skill"""
-        if not self.skills_dir.exists():
-            logger.info(f"YAML Skill 目录不存在: {self.skills_dir}，跳过加载")
-            return []
-
+        """加载所有目录下的 YAML Skill
+        如果同名，用户自定义技能会覆盖系统示例
+        """
         results = []
-        for yaml_file in self.skills_dir.glob("*.yaml"):
-            if yaml_file.name.startswith("."):
-                continue
-            result = self.load_from_file(yaml_file)
-            results.append(result)
 
-        logger.info(f"YAML Skill 加载完成，成功: {sum(1 for r in results if r.success)}/{len(results)}")
+        for skills_dir in self._skill_dirs:
+            if not skills_dir.exists():
+                logger.info(f"YAML Skill 目录不存在: {skills_dir}，跳过加载")
+                continue
+
+            for yaml_file in skills_dir.glob("*.yaml"):
+                if yaml_file.name.startswith("."):
+                    continue
+                result = self.load_from_file(yaml_file)
+                results.append(result)
+
+        total = len(results)
+        success = sum(1 for r in results if r.success)
+        logger.info(f"YAML Skill 加载完成，成功: {success}/{total}")
         return results
 
     def load_from_file(self, path: Path) -> YAMLLoadResult:

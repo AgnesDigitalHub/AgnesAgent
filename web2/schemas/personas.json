@@ -1,0 +1,370 @@
+{
+  "type": "page",
+  "title": "人格管理",
+  "body": [
+    {
+      "type": "crud",
+      "api": {
+        "method": "get",
+        "url": "/api/personas/list"
+      },
+      "perPage": 12,
+      "syncLocation": false,
+      "headerToolbar": [
+        "reload",
+        {
+          "type": "button",
+          "label": "导入YAML",
+          "level": "primary",
+          "actionType": "dialog",
+          "dialog": {
+            "title": "导入结构化人格配置 (YAML)",
+            "body": {
+              "type": "form",
+              "api": "/api/personas/import",
+              "body": [
+                {
+                  "type": "textarea",
+                  "name": "yaml_content",
+                  "label": "YAML 内容",
+                  "required": true,
+                  "placeholder": "在此粘贴YAML配置内容...",
+                  "description": "按照四层架构定义的结构化人格配置",
+                  "rows": 20
+                }
+              ],
+              "buttons": [
+                {
+                  "type": "submit",
+                  "label": "导入",
+                  "primary": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "button",
+          "label": "导入Markdown",
+          "level": "primary",
+          "actionType": "dialog",
+          "dialog": {
+            "title": "导入结构化人格配置 (Markdown)",
+            "body": {
+              "type": "form",
+              "api": "/api/personas/import-markdown",
+              "body": [
+                {
+                  "type": "textarea",
+                  "name": "markdown_content",
+                  "label": "Markdown 内容",
+                  "required": true,
+                  "placeholder": "在此粘贴Markdown内容，支持 --- YAML frontmatter --- + system prompt 格式...",
+                  "description": "YAML frontmatter定义元数据，正文作为system_prompt",
+                  "rows": 20
+                }
+              ],
+              "buttons": [
+                {
+                  "type": "submit",
+                  "label": "导入",
+                  "primary": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "button",
+          "label": "新建人格",
+          "level": "success",
+          "actionType": "dialog",
+          "dialog": {
+            "title": "新建人格",
+            "body": {
+              "type": "form",
+              "api": "/api/personas/create",
+              "body": [
+                {
+                  "type": "input-text",
+                  "name": "full_name",
+                  "label": "人格名称",
+                  "required": true,
+                  "placeholder": "如：小助手"
+                },
+                {
+                  "type": "input-text",
+                  "name": "description",
+                  "label": "简短描述",
+                  "placeholder": "用于列表展示，如：友好的AI助手"
+                },
+                {
+                  "type": "divider",
+                  "title": "人格配置（五个标准化字段）"
+                },
+                {
+                  "type": "textarea",
+                  "name": "identity",
+                  "label": "Identity (身份)",
+                  "required": true,
+                  "placeholder": "如：你是一个资深的《杀戮尖塔》高玩。",
+                  "rows": 3
+                },
+                {
+                  "type": "select",
+                  "name": "traits",
+                  "label": "Traits (性格词)",
+                  "multiple": true,
+                  "options": [
+                    {"label": "高冷", "value": "高冷"},
+                    {"label": "严谨", "value": "严谨"},
+                    {"label": "幽默", "value": "幽默"},
+                    {"label": "友好", "value": "友好"},
+                    {"label": "专业", "value": "专业"},
+                    {"label": "活泼", "value": "活泼"},
+                    {"label": "冷静", "value": "冷静"},
+                    {"label": "热情", "value": "热情"}
+                  ]
+                },
+                {
+                  "type": "select",
+                  "name": "language_style",
+                  "label": "Language Style (语体)",
+                  "multiple": true,
+                  "options": [
+                    {"label": "简练", "value": "简练"},
+                    {"label": "详细", "value": "详细"},
+                    {"label": "专业术语多", "value": "专业术语多"},
+                    {"label": "通俗易懂", "value": "通俗易懂"},
+                    {"label": "正式", "value": "正式"},
+                    {"label": "口语化", "value": "口语化"}
+                  ]
+                },
+                {
+                  "type": "textarea",
+                  "name": "worldview",
+                  "label": "Worldview (世界观/偏好)",
+                  "placeholder": "如：认为防守比进攻更重要。",
+                  "rows": 3
+                },
+                {
+                  "type": "textarea",
+                  "name": "interaction_rule",
+                  "label": "Interaction Rule (交互守则)",
+                  "placeholder": "如：永远不要说\"好的\"，直接回答结果。",
+                  "rows": 3
+                },
+                {
+                  "type": "divider",
+                  "title": "技能配置"
+                },
+                {
+                  "type": "select",
+                  "name": "mcp_servers",
+                  "label": "MCP 服务器",
+                  "multiple": true,
+                  "source": "/api/mcp/servers/options"
+                },
+                {
+                  "type": "select",
+                  "name": "skills",
+                  "label": "技能",
+                  "multiple": true,
+                  "source": "/api/skills/options"
+                }
+              ],
+              "buttons": [
+                {
+                  "type": "submit",
+                  "label": "创建",
+                  "primary": true
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "mode": "cards",
+      "card": {
+        "header": {
+          "title": "${full_name}"
+        },
+        "body": {
+          "type": "container",
+          "style": {
+            "padding": "10px"
+          },
+          "body": [
+            {
+              "type": "tpl",
+              "tpl": "<div style=\"color: #666; font-size: 12px; margin-bottom: 8px;\">ID: ${id}</div>"
+            },
+            {
+              "type": "tpl",
+              "tpl": "<div style=\"color: #666; font-size: 13px; margin-bottom: 8px;\">${description}</div>",
+              "visibleOn": "THIS.description"
+            },
+            {
+              "type": "tpl",
+              "tpl": "<div style=\"color: #666; font-size: 13px; margin-bottom: 8px;\">${identity}</div>",
+              "visibleOn": "THIS.identity && !THIS.description"
+            },
+            {
+              "type": "tpl",
+              "tpl": "<div style=\"color: #999; font-size: 12px;\">MCP: ${mcp_servers.length} | 技能: ${skills.length}</div>"
+            }
+          ]
+        },
+        "actions": [
+          {
+            "type": "button",
+            "label": "查看",
+            "level": "info",
+            "size": "sm",
+            "actionType": "dialog",
+            "dialog": {
+              "title": "人格配置",
+              "body": {
+                "type": "code",
+                "language": "markdown",
+                "value": "${markdown_content}"
+              }
+            }
+          },
+          {
+            "type": "button",
+            "label": "编辑",
+            "level": "info",
+            "size": "sm",
+            "actionType": "dialog",
+            "dialog": {
+              "title": "编辑人格",
+              "body": {
+                "type": "form",
+                "api": "put:/api/personas/save/${id}",
+                "initApi": "get:/api/personas/get/${id}",
+                "body": [
+                  {
+                    "type": "input-text",
+                    "name": "id",
+                    "label": "ID"
+                  },
+                  {
+                    "type": "static",
+                    "label": "创建时间",
+                    "tpl": "${created_at}"
+                  },
+                  {
+                    "type": "static",
+                    "label": "修改时间",
+                    "tpl": "${updated_at}"
+                  },
+                  {
+                    "type": "input-text",
+                    "name": "full_name",
+                    "label": "人格名称",
+                    "required": true
+                  },
+                  {
+                    "type": "input-text",
+                    "name": "description",
+                    "label": "简短描述"
+                  },
+                  {
+                    "type": "divider",
+                    "title": "人格配置（五个标准化字段）"
+                  },
+                  {
+                    "type": "textarea",
+                    "name": "identity",
+                    "label": "Identity (身份)",
+                    "required": true,
+                    "rows": 3
+                  },
+                  {
+                    "type": "select",
+                    "name": "traits",
+                    "label": "Traits (性格词)",
+                    "multiple": true,
+                    "options": [
+                      {"label": "高冷", "value": "高冷"},
+                      {"label": "严谨", "value": "严谨"},
+                      {"label": "幽默", "value": "幽默"},
+                      {"label": "友好", "value": "友好"},
+                      {"label": "专业", "value": "专业"},
+                      {"label": "活泼", "value": "活泼"},
+                      {"label": "冷静", "value": "冷静"},
+                      {"label": "热情", "value": "热情"}
+                    ]
+                  },
+                  {
+                    "type": "select",
+                    "name": "language_style",
+                    "label": "Language Style (语体)",
+                    "multiple": true,
+                    "options": [
+                      {"label": "简练", "value": "简练"},
+                      {"label": "详细", "value": "详细"},
+                      {"label": "专业术语多", "value": "专业术语多"},
+                      {"label": "通俗易懂", "value": "通俗易懂"},
+                      {"label": "正式", "value": "正式"},
+                      {"label": "口语化", "value": "口语化"}
+                    ]
+                  },
+                  {
+                    "type": "textarea",
+                    "name": "worldview",
+                    "label": "Worldview (世界观/偏好)",
+                    "rows": 3
+                  },
+                  {
+                    "type": "textarea",
+                    "name": "interaction_rule",
+                    "label": "Interaction Rule (交互守则)",
+                    "rows": 3
+                  },
+                  {
+                    "type": "divider",
+                    "title": "技能配置"
+                  },
+                  {
+                    "type": "select",
+                    "name": "mcp_servers",
+                    "label": "MCP 服务器",
+                    "multiple": true,
+                    "source": "/api/mcp/servers/options"
+                  },
+                  {
+                    "type": "select",
+                    "name": "skills",
+                    "label": "技能",
+                    "multiple": true,
+                    "source": "/api/skills/options"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "type": "button",
+            "label": "删除",
+            "level": "danger",
+            "size": "sm",
+            "actionType": "ajax",
+            "confirmText": "确定要删除这个人格吗？",
+            "api": "delete:/api/personas/delete/${id}"
+          }
+        ]
+      },
+      "bulkActions": [
+        {
+          "label": "批量删除",
+          "type": "button",
+          "level": "danger",
+          "api": "/api/personas/bulk-delete",
+          "confirmText": "确定要删除选中吗？"
+        }
+      ]
+    }
+  ]
+}

@@ -7,6 +7,7 @@ Agnes Web2 - FastAPI + AMIS SPA 后端
 """
 
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -24,7 +25,7 @@ from agnes.providers import OllamaProvider, OpenAIProvider
 from agnes.skills import SkillResult, registry
 from web2.app_config import get_app_config, get_built_amis_app
 from web2.models import ProfileStore
-from web2.persona import PersonaStore
+from web2.persona import PersonaEngine, PersonaStore
 from web2.stats_manager import get_stats_manager
 
 
@@ -100,9 +101,7 @@ def register_amis_routes(app: FastAPI, api_prefix: str = "/api", add_spa_fallbac
             # 过滤掉 API 请求，API 请求不应该返回 HTML
             if full_path.startswith("api/") or full_path.startswith("/api/"):
                 raise HTTPException(status_code=404, detail="API 端点不存在")
-            # 过滤掉带扩展名的静态资源请求，避免把 .js/.css 也返回成 html
-            if "." in full_path:
-                raise HTTPException(status_code=404, detail="静态资源不存在")
+            # 当 web2_app 被挂载到根应用时（如 main.py 中）不要添加兜底路由，否则会导致路由匹配问题
             html = read_index_html()
             return HTMLResponse(content=html)
 
@@ -167,6 +166,18 @@ profile_store = ProfileStore(storage_path)
 # 人格存储路径
 persona_storage_path = root_dir / "config" / "personas" / "personas.json"
 persona_store = PersonaStore(persona_storage_path)
+
+# Persona Engine 实例
+persona_config_dir = root_dir / "config" / "personas"
+persona_state_path = root_dir / "data" / "persona" / "states.json"
+persona_memory_path = root_dir / "data" / "persona" / "memories.json"
+
+# 确保目录存在
+persona_state_path.parent.mkdir(parents=True, exist_ok=True)
+
+persona_engine = PersonaEngine(persona_config_dir, persona_state_path, persona_memory_path)
+# 预加载所有人格
+persona_engine.load_all_from_dir()
 
 
 # 请求模型 - LLM Profile
@@ -692,6 +703,343 @@ def register_api_routes(app: FastAPI, api_prefix: str = "/api"):
                 await websocket.send_json({"type": "error", "message": f"服务器错误: {str(e)}"})
             except Exception:
                 pass
+
+    # ============ 结构化人格管理 API ============
+
+    @app.get(f"{api_prefix}/personas/list")
+    async def list_personas_crud(page: int = 1, perPage: int = 12):
+        """获取人格列表（适配 CRUD 组件）"""
+        try:
+            all_personas = persona_store.list_personas()
+            # 按修改时间倒序
+            all_personas.sort(key=lambda p: p.updated_at or datetime.min, reverse=True)
+
+            total = len(all_personas)
+            start = (page - 1) * perPage
+            end = start + perPage
+
+            # 为每个 item 添加 markdown_content 并确保新字段存在
+            items = []
+            for p in all_personas[start:end]:
+                pd = p.to_dict()
+                # 确保五个标准化字段存在
+                if "identity" not in pd:
+                    pd["identity"] = ""
+                if "traits" not in pd:
+                    pd["traits"] = []
+                if "language_style" not in pd:
+                    pd["language_style"] = []
+                if "worldview" not in pd:
+                    pd["worldview"] = ""
+                if "interaction_rule" not in pd:
+                    pd["interaction_rule"] = ""
+                # 添加 markdown_content
+                pd["markdown_content"] = persona_engine.generate_markdown_from_model(p)
+                items.append(pd)
+
+            return {"items": items, "total": total}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"获取列表失败: {str(e)}")
+
+    @app.get(f"{api_prefix}/personas/get/{{persona_id}}")
+    async def get_persona_crud(persona_id: str):
+        """获取单个人格详情"""
+        persona = persona_store.get_persona(persona_id)
+        if not persona:
+            raise HTTPException(status_code=404, detail="人格不存在")
+        data = persona.to_dict()
+        # 确保有 id 字段
+        if "id" not in data:
+            data["id"] = persona_id
+        # 添加 markdown_content
+        data["markdown_content"] = persona_engine.generate_markdown_from_model(persona)
+        return data
+
+    @app.post(f"{api_prefix}/personas/import")
+    async def import_persona(req: dict):
+        """从YAML导入人格"""
+        try:
+            yaml_content = req.get("yaml", "") or req.get("yaml_content", "")
+            if not yaml_content:
+                raise HTTPException(status_code=400, detail="缺少 YAML 内容")
+
+            # 使用 persona_engine 解析 YAML
+            import os
+            import tempfile
+
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False, encoding="utf-8") as f:
+                f.write(yaml_content)
+                temp_path = f.name
+
+            try:
+                config = persona_engine.load_persona(temp_path)
+                # 转换为 persona_store 格式
+                persona_id = config.id
+                identity = config.identity
+                metadata = config.metadata
+                persona = persona_store.create_persona(
+                    full_name=identity.name if identity else persona_id,
+                    nickname=identity.name if identity else persona_id,
+                    role=metadata.tags[0] if metadata and metadata.tags else "agent",
+                    personality=", ".join(identity.core_values) if identity and identity.core_values else "",
+                    scenario="",
+                    system_prompt=persona_engine.get_persona_prompt(persona_id),
+                    description=identity.bio if identity else "",
+                    enabled=True,
+                )
+                return persona.to_dict()
+            finally:
+                os.unlink(temp_path)
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"导入失败: {str(e)}")
+
+    @app.post(f"{api_prefix}/personas/import-markdown")
+    async def import_persona_markdown(req: dict):
+        """从Markdown导入人格"""
+        try:
+            markdown_content = req.get("markdown", "") or req.get("markdown_content", "")
+            persona_id = req.get("persona_id", "") or req.get("id", "")
+            if not markdown_content:
+                raise HTTPException(status_code=400, detail="缺少 Markdown 内容")
+            if not persona_id:
+                raise HTTPException(status_code=400, detail="缺少 persona_id")
+
+            # 使用 persona_engine 解析 Markdown
+            persona_data = persona_engine.import_from_markdown(markdown_content, persona_id)
+
+            # 保存到 persona_store
+            persona = persona_store.create_persona(
+                full_name=persona_data["full_name"],
+                nickname=persona_data["nickname"],
+                role=persona_data["role"],
+                personality=persona_data["personality"],
+                scenario=persona_data["scenario"],
+                system_prompt=persona_data["system_prompt"],
+                description=persona_data["description"],
+                enabled=True,
+            )
+
+            return persona.to_dict()
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Markdown导入失败: {str(e)}")
+
+    @app.post(f"{api_prefix}/personas/create")
+    async def create_persona_crud(req: dict):
+        """创建新人格（适配标准化字段）"""
+        try:
+            # 支持新旧两种格式
+            name = req.get("name", "") or req.get("full_name", "")
+
+            # 如果是 identity 对象结构
+            if "identity" in req and isinstance(req["identity"], dict):
+                identity_obj = req["identity"]
+                if "name" in identity_obj and not name:
+                    name = identity_obj["name"]
+
+            if not name:
+                raise HTTPException(status_code=400, detail="缺少 name 或 full_name")
+
+            # 获取 nickname
+            nickname = req.get("nickname", "")
+            if not nickname:
+                if "identity" in req and isinstance(req["identity"], dict):
+                    identity_obj = req["identity"]
+                    if "name" in identity_obj:
+                        nickname = identity_obj["name"]
+                if not nickname:
+                    nickname = name
+
+            # 获取五个标准化字段
+            identity = req.get("identity", "")
+            traits = req.get("traits", [])
+            language_style = req.get("language_style", [])
+            worldview = req.get("worldview", "")
+            interaction_rule = req.get("interaction_rule", "")
+
+            # 兼容旧字段
+            description = req.get("description", req.get("bio", ""))
+            system_prompt = req.get("system_prompt", req.get("bio", ""))
+
+            # 创建人格（包含新字段）
+            persona = persona_store.create_persona(
+                full_name=name,
+                nickname=nickname,
+                role=req.get("role", ""),
+                personality=req.get("personality", ""),
+                scenario=req.get("scenario", ""),
+                system_prompt=system_prompt,
+                description=description,
+                enabled=req.get("enabled", True),
+                mcp_enabled=req.get("mcp_enabled", False),
+                mcp_servers=req.get("mcp_servers"),
+                skills=req.get("skills"),
+                llm_profile_id=req.get("llm_profile_id"),
+                identity=identity,
+                traits=traits,
+                language_style=language_style,
+                worldview=worldview,
+                interaction_rule=interaction_rule,
+            )
+            return persona.to_dict()
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"创建失败: {str(e)}")
+
+    @app.put(f"{api_prefix}/personas/save/{{persona_id}}")
+    async def save_persona_crud(persona_id: str, req: dict):
+        """保存人格"""
+        try:
+            # 支持新旧两种格式的字段映射
+            updates = {}
+
+            # 处理 identity 对象结构
+            if "identity" in req and isinstance(req["identity"], dict):
+                identity = req["identity"]
+                if "name" in identity:
+                    updates["full_name"] = identity["name"]
+                if "bio" in identity:
+                    updates["description"] = identity["bio"]
+                    updates["system_prompt"] = identity["bio"]
+
+            # 处理点号表示法的 identity 字段
+            if "identity.name" in req:
+                updates["full_name"] = req["identity.name"]
+            elif "name" in req and "full_name" not in updates:
+                updates["full_name"] = req["name"]
+
+            if "identity.bio" in req:
+                updates["description"] = req["identity.bio"]
+                updates["system_prompt"] = req["identity.bio"]
+            elif "bio" in req and "description" not in updates:
+                updates["description"] = req["bio"]
+                updates["system_prompt"] = req["bio"]
+
+            # 处理 nickname（如果有）
+            if "nickname" in req:
+                updates["nickname"] = req["nickname"]
+            elif "full_name" in updates and "nickname" not in updates:
+                # 如果没有 nickname，用 full_name 作为默认值
+                updates["nickname"] = updates["full_name"]
+
+            # 处理五个标准化字段
+            if "identity" in req:
+                if isinstance(req["identity"], str):
+                    updates["identity"] = req["identity"]
+            if "traits" in req:
+                updates["traits"] = req["traits"]
+            if "language_style" in req:
+                updates["language_style"] = req["language_style"]
+            if "worldview" in req:
+                updates["worldview"] = req["worldview"]
+            if "interaction_rule" in req:
+                updates["interaction_rule"] = req["interaction_rule"]
+
+            # 直接复制其他有效字段
+            valid_fields = [
+                "role",
+                "personality",
+                "scenario",
+                "system_prompt",
+                "description",
+                "enabled",
+                "mcp_enabled",
+                "mcp_servers",
+                "skills",
+                "llm_profile_id",
+            ]
+            for k, v in req.items():
+                if k in valid_fields and k not in updates:
+                    updates[k] = v
+
+            # 过滤掉空值
+            updates = {k: v for k, v in updates.items() if v is not None}
+
+            persona = persona_store.update_persona(persona_id, **updates)
+            if not persona:
+                raise HTTPException(status_code=404, detail="人格不存在")
+            return persona.to_dict()
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"保存失败: {str(e)}")
+
+    @app.delete(f"{api_prefix}/personas/delete/{{persona_id}}")
+    async def delete_persona_crud(persona_id: str):
+        """删除人格"""
+        try:
+            success = persona_store.delete_persona(persona_id)
+            if not success:
+                raise HTTPException(status_code=404, detail="人格不存在")
+            return {"success": True}
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"删除失败: {str(e)}")
+
+    @app.post(f"{api_prefix}/personas/bulk-delete")
+    async def bulk_delete_personas(req: dict):
+        """批量删除人格"""
+        try:
+            ids = req.get("ids", [])
+            if not ids:
+                raise HTTPException(status_code=400, detail="缺少 ids 参数")
+
+            deleted_count = 0
+            for pid in ids:
+                if persona_store.delete_persona(pid):
+                    deleted_count += 1
+
+            return {"success": True, "deletedCount": deleted_count}
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"批量删除失败: {str(e)}")
+
+    # ============ Persona Engine 高级功能 ============
+
+    @app.get(f"{api_prefix}/personas/{{persona_id}}/prompt")
+    async def get_persona_system_prompt(persona_id: str, user_id: str = "default"):
+        """获取人格的完整系统提示词"""
+        try:
+            prompt = persona_engine.get_persona_prompt(persona_id, user_id)
+            return {"persona_id": persona_id, "user_id": user_id, "prompt": prompt}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"获取提示词失败: {str(e)}")
+
+    @app.post(f"{api_prefix}/personas/{{persona_id}}/state")
+    async def set_persona_state(persona_id: str, request: dict):
+        """设置人格状态参数"""
+        try:
+            user_id = request.get("user_id", "default")
+            key = request.get("key")
+            value = request.get("value")
+
+            if not key:
+                raise HTTPException(status_code=400, detail="缺少 key 参数")
+
+            persona_engine.set_agent_state(user_id, persona_id, key, value)
+            return {"success": True}
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"设置状态失败: {str(e)}")
+
+    @app.post(f"{api_prefix}/personas/{{persona_id}}/reflection")
+    async def add_persona_reflection(persona_id: str, request: dict):
+        """添加自我观察记忆"""
+        try:
+            user_id = request.get("user_id", "default")
+            reflection = request.get("reflection", "")
+
+            persona_engine.add_self_reflection(user_id, persona_id, reflection)
+            return {"success": True}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"添加反思失败: {str(e)}")
 
     # ============ 人格管理 API ============
 
@@ -1960,6 +2308,28 @@ def register_api_routes(app: FastAPI, api_prefix: str = "/api"):
                 value = getattr(config, value_field, config.id)
                 label = getattr(config, label_field, config.name)
                 options.append({"value": value, "label": label})
+        return options
+
+    @app.get(f"{api_prefix}/mcp/servers/options")
+    async def get_mcp_servers_options(value_field: str = "id", label_field: str = "name"):
+        """获取MCP服务器选项列表（供下拉选择使用）- servers 路径"""
+        configs = load_mcp_configs()
+        options = []
+        for config in configs.values():
+            if config.enabled:
+                value = getattr(config, value_field, config.id)
+                label = getattr(config, label_field, config.name)
+                options.append({"value": value, "label": label})
+        return options
+
+    @app.get(f"{api_prefix}/skills/options")
+    async def get_skills_options():
+        """获取技能选项列表（供下拉选择使用）"""
+        skills = registry.list_skills()
+        options = []
+        for skill in skills:
+            schema = skill.get_schema()
+            options.append({"value": schema.name, "label": schema.name})
         return options
 
     @app.get(f"{api_prefix}/mcp/logs/list")

@@ -694,6 +694,16 @@ class MCPEnhancedManager:
         self._save_call_logs()
 
 
-# 全局单例
-_root_dir = Path(__file__).parent.parent.parent / "config" / "mcp"
-enhanced_manager = MCPEnhancedManager(_root_dir / "management")
+# 全局单例 - 默认存储在 data/mcp，这是用户自定义数据
+# 如果 data/mcp 不存在，回退到 config/mcp/management
+from agnes.config import get_project_root
+
+_root = get_project_root()
+_data_root = _root / "data" / "mcp"
+_config_root = _root / "config" / "mcp" / "management"
+
+# 使用 data/mcp 作为主要存储
+if _data_root.exists() or True:  # 总是使用 data/mcp
+    enhanced_manager = MCPEnhancedManager(_data_root)
+else:
+    enhanced_manager = MCPEnhancedManager(_config_root)
