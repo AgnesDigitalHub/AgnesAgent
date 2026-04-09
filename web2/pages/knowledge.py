@@ -1,13 +1,11 @@
 """
-Knowledge Base Page (Placeholder)
+Knowledge Base Page - AMIS Schema
+知识库管理：支持文档上传、向量检索、RAG 配置
 """
 
-from nicegui import ui
 
+def get_knowledge_schema() -> dict:
+    """获取知识库管理页面 schema"""
+    from web2.schemas.knowledge import get_knowledge_schema as _get_schema
 
-def show_knowledge():
-    """Show Knowledge Base page"""
-    with ui.card().classes("w-full"):
-        ui.label("知识库/RAG").classes("text-2xl font-bold")
-        ui.separator()
-        ui.label("🚧 此功能正在开发中，敬请期待...").classes("text-lg text-gray-500")
+    return _get_schema()

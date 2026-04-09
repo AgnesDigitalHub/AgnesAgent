@@ -76,19 +76,21 @@ async def custom_config():
     )
 
     # 从文件加载配置
-    config = AgentConfig.from_dict({
-        "name": "custom_assistant",
-        "description": "自定义助手",
-        "capabilities": {
-            "function_calling": True,
-            "multi_step": True,
-            "max_steps": 20,
-        },
-        "behavior": {
-            "temperature": 0.5,
-            "system_prompt": "你是一个专业的数据分析助手。",
-        },
-    })
+    config = AgentConfig.from_dict(
+        {
+            "name": "custom_assistant",
+            "description": "自定义助手",
+            "capabilities": {
+                "function_calling": True,
+                "multi_step": True,
+                "max_steps": 20,
+            },
+            "behavior": {
+                "temperature": 0.5,
+                "system_prompt": "你是一个专业的数据分析助手。",
+            },
+        }
+    )
 
     agent = Agent(llm=llm, config=config)
 
@@ -133,7 +135,7 @@ async def main():
     ]
 
     for name, func in examples:
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"示例: {name}")
         print("=" * 60)
         try:

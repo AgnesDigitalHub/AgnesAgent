@@ -192,6 +192,7 @@ class Persona:
 
         # 使用 PromptBuilder 生成
         from .builder import PromptBuilder
+
         return PromptBuilder.build(self)
 
 

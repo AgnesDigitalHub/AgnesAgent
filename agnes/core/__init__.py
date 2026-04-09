@@ -36,10 +36,12 @@ from agnes.memory import (
     create_embedder,
 )
 
-__all__.extend([
-    "MemoryEntry",
-    "MemoryManager",
-    "SimpleVectorStore",
-    "SimpleEmbedder",
-    "create_embedder",
-])
+__all__.extend(
+    [
+        "MemoryEntry",
+        "MemoryManager",
+        "SimpleVectorStore",
+        "SimpleEmbedder",
+        "create_embedder",
+    ]
+)

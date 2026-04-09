@@ -1,13 +1,12 @@
 """
-Tools Management Page (Placeholder)
+Tools Management Page - AMIS Schema
 """
 
-from nicegui import ui
+from web2.schemas.tools import get_tools_schema
 
 
-def show_tools():
-    """Show Tools Management page"""
-    with ui.card().classes("w-full"):
-        ui.label("工具/插件管理").classes("text-2xl font-bold")
-        ui.separator()
-        ui.label("🚧 此功能正在开发中，敬请期待...").classes("text-lg text-gray-500")
+def get_tools_schema() -> dict:
+    """获取工具管理页面 schema"""
+    from web2.schemas.tools import get_tools_schema as _get_schema
+
+    return _get_schema()

@@ -185,7 +185,9 @@ class AsyncTaskQueue:
 
     def __init__(self, max_concurrency: int = 5):
         self.max_concurrency = max_concurrency
-        self._queue: asyncio.PriorityQueue[tuple[int, int, Callable[[], Coroutine[Any, Any, Any]]]] = asyncio.PriorityQueue()
+        self._queue: asyncio.PriorityQueue[tuple[int, int, Callable[[], Coroutine[Any, Any, Any]]]] = (
+            asyncio.PriorityQueue()
+        )
         self._semaphore = asyncio.Semaphore(max_concurrency)
         self._task_count = 0
         self._running = False
@@ -273,7 +275,7 @@ async def retry_with_backoff(
             last_exception = e
             if attempt < max_retries:
                 # 指数退避 + 随机抖动
-                delay = min(base_delay * (2 ** attempt), max_delay)
+                delay = min(base_delay * (2**attempt), max_delay)
                 delay = delay * (0.5 + random.random())  # 添加抖动
                 logger.warning(f"Attempt {attempt + 1} failed: {e}. Retrying in {delay:.2f}s...")
                 await asyncio.sleep(delay)

@@ -2617,6 +2617,98 @@ def register_api_routes(app: FastAPI, api_prefix: str = "/api"):
             },
         )
 
+    # ============ Tools API ============
+
+    # 工具存储路径
+    tools_storage_path = root_dir / "config" / "tools.json"
+
+    def _load_tools() -> list[dict]:
+        """加载工具列表"""
+        if not tools_storage_path.exists():
+            return []
+        try:
+            with open(tools_storage_path, encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return []
+
+    def _save_tools(tools: list[dict]) -> None:
+        """保存工具列表"""
+        tools_storage_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(tools_storage_path, "w", encoding="utf-8") as f:
+            json.dump(tools, f, ensure_ascii=False, indent=2)
+
+    @app.get(f"{api_prefix}/tools/list")
+    async def list_tools(page: int = 1, perPage: int = 12):
+        """列出所有工具"""
+        tools = _load_tools()
+        # 支持分页
+        total = len(tools)
+        start = (page - 1) * perPage
+        end = start + perPage
+        items = tools[start:end]
+        return {"items": items, "total": total}
+
+    @app.get(f"{api_prefix}/tools/get/{{tool_id}}")
+    async def get_tool(tool_id: str):
+        """获取单个工具详情"""
+        tools = _load_tools()
+        for tool in tools:
+            if tool.get("id") == tool_id:
+                return tool
+        raise HTTPException(status_code=404, detail=f"工具 '{tool_id}' 不存在")
+
+    @app.post(f"{api_prefix}/tools/create")
+    async def create_tool(request: dict[str, Any]):
+        """创建新工具"""
+        import uuid
+
+        tools = _load_tools()
+        new_tool = {
+            "id": str(uuid.uuid4())[:8],
+            "name": request.get("name", "未命名工具"),
+            "description": request.get("description", ""),
+            "enabled": request.get("enabled", True),
+            "created_at": datetime.now().isoformat(),
+        }
+        tools.append(new_tool)
+        _save_tools(tools)
+        return {"success": True, "id": new_tool["id"], "data": new_tool}
+
+    @app.put(f"{api_prefix}/tools/save/{{tool_id}}")
+    async def update_tool(tool_id: str, request: dict[str, Any]):
+        """更新工具"""
+        tools = _load_tools()
+        for i, tool in enumerate(tools):
+            if tool.get("id") == tool_id:
+                tools[i].update(request)
+                tools[i]["updated_at"] = datetime.now().isoformat()
+                _save_tools(tools)
+                return {"success": True, "data": tools[i]}
+        raise HTTPException(status_code=404, detail=f"工具 '{tool_id}' 不存在")
+
+    @app.delete(f"{api_prefix}/tools/delete/{{tool_id}}")
+    async def delete_tool(tool_id: str):
+        """删除工具"""
+        tools = _load_tools()
+        for i, tool in enumerate(tools):
+            if tool.get("id") == tool_id:
+                tools.pop(i)
+                _save_tools(tools)
+                return {"success": True}
+        raise HTTPException(status_code=404, detail=f"工具 '{tool_id}' 不存在")
+
+    @app.post(f"{api_prefix}/tools/bulk-delete")
+    async def bulk_delete_tools(request: dict[str, Any]):
+        """批量删除工具"""
+        ids = request.get("ids", [])
+        if not ids:
+            raise HTTPException(status_code=400, detail="未提供要删除的ID列表")
+        tools = _load_tools()
+        tools = [t for t in tools if t.get("id") not in ids]
+        _save_tools(tools)
+        return {"success": True, "deleted_count": len(ids)}
+
     # ============ Skill 调试 API ============
 
     class ExecuteSkillRequest(BaseModel):
@@ -2625,7 +2717,7 @@ def register_api_routes(app: FastAPI, api_prefix: str = "/api"):
         parameters: dict[str, Any]
 
     @app.get(f"{api_prefix}/skills/list")
-    async def list_skills():
+    async def list_skills(page: int = 1, perPage: int = 12):
         """列出所有已注册的 Skill"""
         skills = registry.list_skills()
         result = []
@@ -2634,16 +2726,23 @@ def register_api_routes(app: FastAPI, api_prefix: str = "/api"):
             meta = skill.get_metadata()
             result.append(
                 {
+                    "id": schema.name,
                     "name": schema.name,
                     "description": schema.description,
                     "category": meta.category,
                     "version": meta.version,
                     "tags": meta.tags,
+                    "enabled": True,
                     "source": "yaml" if hasattr(skill, "yaml_source") else "native",
                     "parameters": schema.parameters,
                 }
             )
-        return {"skills": result}
+        # 支持分页
+        total = len(result)
+        start = (page - 1) * perPage
+        end = start + perPage
+        items = result[start:end]
+        return {"items": items, "total": total}
 
     @app.post(f"{api_prefix}/skills/execute/{{skill_name}}")
     async def execute_skill(skill_name: str, req: ExecuteSkillRequest):
@@ -2744,6 +2843,205 @@ def register_api_routes(app: FastAPI, api_prefix: str = "/api"):
                 "errors": errors if errors else None,
                 "message": f"成功上传 {uploaded_count} 个 Skill 文件",
             }
+
+    # ============ Agents API ============
+
+    # Agent 存储路径
+    agents_storage_path = root_dir / "config" / "agents.json"
+
+    def _load_agents() -> list[dict]:
+        """加载 Agent 列表"""
+        if not agents_storage_path.exists():
+            return []
+        try:
+            with open(agents_storage_path, encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return []
+
+    def _save_agents(agents: list[dict]) -> None:
+        """保存 Agent 列表"""
+        agents_storage_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(agents_storage_path, "w", encoding="utf-8") as f:
+            json.dump(agents, f, ensure_ascii=False, indent=2)
+
+    @app.get(f"{api_prefix}/agents/list")
+    async def list_agents(page: int = 1, perPage: int = 12):
+        """列出所有 Agent"""
+        agents = _load_agents()
+        total = len(agents)
+        start = (page - 1) * perPage
+        end = start + perPage
+        items = agents[start:end]
+        return {"items": items, "total": total}
+
+    @app.get(f"{api_prefix}/agents/get/{{agent_id}}")
+    async def get_agent(agent_id: str):
+        """获取单个 Agent 详情"""
+        agents = _load_agents()
+        for agent in agents:
+            if agent.get("id") == agent_id:
+                return agent
+        raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' 不存在")
+
+    @app.post(f"{api_prefix}/agents/create")
+    async def create_agent(request: dict[str, Any]):
+        """创建新 Agent"""
+        import uuid
+
+        agents = _load_agents()
+        new_agent = {
+            "id": str(uuid.uuid4())[:8],
+            "name": request.get("name", "未命名 Agent"),
+            "description": request.get("description", ""),
+            "enabled": request.get("enabled", True),
+            "created_at": datetime.now().isoformat(),
+        }
+        agents.append(new_agent)
+        _save_agents(agents)
+        return {"success": True, "id": new_agent["id"], "data": new_agent}
+
+    @app.put(f"{api_prefix}/agents/save/{{agent_id}}")
+    async def update_agent(agent_id: str, request: dict[str, Any]):
+        """更新 Agent"""
+        agents = _load_agents()
+        for i, agent in enumerate(agents):
+            if agent.get("id") == agent_id:
+                agents[i].update(request)
+                agents[i]["updated_at"] = datetime.now().isoformat()
+                _save_agents(agents)
+                return {"success": True, "data": agents[i]}
+        raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' 不存在")
+
+    @app.delete(f"{api_prefix}/agents/delete/{{agent_id}}")
+    async def delete_agent(agent_id: str):
+        """删除 Agent"""
+        agents = _load_agents()
+        for i, agent in enumerate(agents):
+            if agent.get("id") == agent_id:
+                agents.pop(i)
+                _save_agents(agents)
+                return {"success": True}
+        raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' 不存在")
+
+    @app.post(f"{api_prefix}/agents/bulk-delete")
+    async def bulk_delete_agents(request: dict[str, Any]):
+        """批量删除 Agent"""
+        ids = request.get("ids", [])
+        if not ids:
+            raise HTTPException(status_code=400, detail="未提供要删除的ID列表")
+        agents = _load_agents()
+        agents = [a for a in agents if a.get("id") not in ids]
+        _save_agents(agents)
+        return {"success": True, "deleted_count": len(ids)}
+
+    # ============ Knowledge API ============
+
+    # 知识库存储路径
+    knowledge_storage_path = root_dir / "data" / "knowledge.json"
+
+    def _load_knowledge() -> list[dict]:
+        """加载知识库列表"""
+        if not knowledge_storage_path.exists():
+            return []
+        try:
+            with open(knowledge_storage_path, encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return []
+
+    def _save_knowledge(items: list[dict]) -> None:
+        """保存知识库列表"""
+        knowledge_storage_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(knowledge_storage_path, "w", encoding="utf-8") as f:
+            json.dump(items, f, ensure_ascii=False, indent=2)
+
+    @app.get(f"{api_prefix}/knowledge/list")
+    async def list_knowledge(page: int = 1, perPage: int = 12):
+        """列出所有知识库条目"""
+        items = _load_knowledge()
+        total = len(items)
+        start = (page - 1) * perPage
+        end = start + perPage
+        return {"items": items[start:end], "total": total}
+
+    @app.get(f"{api_prefix}/knowledge/get/{{item_id}}")
+    async def get_knowledge_item(item_id: str):
+        """获取单个知识库条目"""
+        items = _load_knowledge()
+        for item in items:
+            if item.get("id") == item_id:
+                return item
+        raise HTTPException(status_code=404, detail=f"知识库条目 '{item_id}' 不存在")
+
+    @app.post(f"{api_prefix}/knowledge/create")
+    async def create_knowledge(request: dict[str, Any]):
+        """创建新知识库条目"""
+        import uuid
+
+        items = _load_knowledge()
+        new_item = {
+            "id": str(uuid.uuid4())[:8],
+            "title": request.get("title", "未命名条目"),
+            "content": request.get("content", ""),
+            "category": request.get("category", "通用"),
+            "tags": request.get("tags", []),
+            "enabled": request.get("enabled", True),
+            "created_at": datetime.now().isoformat(),
+        }
+        items.append(new_item)
+        _save_knowledge(items)
+        return {"success": True, "id": new_item["id"], "data": new_item}
+
+    @app.put(f"{api_prefix}/knowledge/save/{{item_id}}")
+    async def update_knowledge(item_id: str, request: dict[str, Any]):
+        """更新知识库条目"""
+        items = _load_knowledge()
+        for i, item in enumerate(items):
+            if item.get("id") == item_id:
+                items[i].update(request)
+                items[i]["updated_at"] = datetime.now().isoformat()
+                _save_knowledge(items)
+                return {"success": True, "data": items[i]}
+        raise HTTPException(status_code=404, detail=f"知识库条目 '{item_id}' 不存在")
+
+    @app.delete(f"{api_prefix}/knowledge/delete/{{item_id}}")
+    async def delete_knowledge(item_id: str):
+        """删除知识库条目"""
+        items = _load_knowledge()
+        for i, item in enumerate(items):
+            if item.get("id") == item_id:
+                items.pop(i)
+                _save_knowledge(items)
+                return {"success": True}
+        raise HTTPException(status_code=404, detail=f"知识库条目 '{item_id}' 不存在")
+
+    @app.post(f"{api_prefix}/knowledge/bulk-delete")
+    async def bulk_delete_knowledge(request: dict[str, Any]):
+        """批量删除知识库条目"""
+        ids = request.get("ids", [])
+        if not ids:
+            raise HTTPException(status_code=400, detail="未提供要删除的ID列表")
+        items = _load_knowledge()
+        items = [k for k in items if k.get("id") not in ids]
+        _save_knowledge(items)
+        return {"success": True, "deleted_count": len(ids)}
+
+    @app.post(f"{api_prefix}/knowledge/search")
+    async def search_knowledge(request: dict[str, Any]):
+        """搜索知识库"""
+        query = request.get("query", "").lower()
+        items = _load_knowledge()
+        if not query:
+            return {"items": items, "total": len(items)}
+        results = [
+            item
+            for item in items
+            if query in item.get("title", "").lower()
+            or query in item.get("content", "").lower()
+            or any(query in tag.lower() for tag in item.get("tags", []))
+        ]
+        return {"items": results, "total": len(results)}
 
 
 def create_fastapi_app(api_prefix: str = "/api") -> FastAPI:

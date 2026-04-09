@@ -53,10 +53,7 @@ class MemoryManager:
         self.max_memories = max_memories
         self.consolidation_threshold = consolidation_threshold
 
-        logger.info(
-            f"MemoryManager initialized: max={max_memories}, "
-            f"threshold={consolidation_threshold}"
-        )
+        logger.info(f"MemoryManager initialized: max={max_memories}, threshold={consolidation_threshold}")
 
     async def add(
         self,
@@ -139,10 +136,7 @@ class MemoryManager:
         results = await self.store.search(query_embedding, top_k=top_k * 2, filter_dict=filter_dict)
 
         # 按重要性过滤
-        filtered_results = [
-            (entry, score) for entry, score in results
-            if entry.importance >= min_importance
-        ]
+        filtered_results = [(entry, score) for entry, score in results if entry.importance >= min_importance]
 
         return filtered_results[:top_k]
 
@@ -263,9 +257,9 @@ class MemoryManager:
 
         # 根据类型调整
         type_weights = {
-            "fact": 0.8,      # 事实性知识重要
+            "fact": 0.8,  # 事实性知识重要
             "preference": 0.9,  # 用户偏好很重要
-            "context": 0.4,     # 上下文相对不重要
+            "context": 0.4,  # 上下文相对不重要
             "general": 0.5,
         }
         base_score = type_weights.get(memory_type, 0.5)
@@ -279,8 +273,16 @@ class MemoryManager:
 
         # 包含关键信息加分
         key_indicators = [
-            "重要", "必须", "关键", "记住", "永远",
-            "important", "must", "key", "remember", "always",
+            "重要",
+            "必须",
+            "关键",
+            "记住",
+            "永远",
+            "important",
+            "must",
+            "key",
+            "remember",
+            "always",
         ]
         for indicator in key_indicators:
             if indicator in content.lower():

@@ -96,7 +96,9 @@ class Agent:
         self._on_tool_result: Callable[[Any], None] | None = None
 
         persona_name = self.persona.name if self.persona else "default"
-        logger.info(f"Agent '{self.config.name}' initialized (memory={'enabled' if self.memory else 'disabled'}, persona={persona_name})")
+        logger.info(
+            f"Agent '{self.config.name}' initialized (memory={'enabled' if self.memory else 'disabled'}, persona={persona_name})"
+        )
 
     def on_step(self, callback: Callable[[ReActStep], None]) -> "Agent":
         """注册步骤回调"""
@@ -260,6 +262,7 @@ class Agent:
 
     async def _run_react(self, query: str, system_prompt: str) -> AgentResponse:
         """运行 ReAct 模式"""
+
         # 包装 LLM 调用以添加追踪
         async def llm_chat_wrapper(messages, tools=None):
             instrument_llm_call(
@@ -363,11 +366,13 @@ class Agent:
                 if self._on_tool_result:
                     self._on_tool_result(result)
 
-                tool_calls.append({
-                    "name": tool_name,
-                    "params": tool_params,
-                    "result": result.data if result.success else result.error_message,
-                })
+                tool_calls.append(
+                    {
+                        "name": tool_name,
+                        "params": tool_params,
+                        "result": result.data if result.success else result.error_message,
+                    }
+                )
 
         return AgentResponse(
             content=response.content or "",
@@ -420,8 +425,17 @@ class Agent:
         if len(query) > 10 and not query.startswith("你好") and not query.startswith("hi"):
             # 判断是否是事实性问题
             fact_indicators = [
-                "是什么", "什么是", "为什么", "怎么", "如何",
-                "what", "why", "how", "who", "when", "where",
+                "是什么",
+                "什么是",
+                "为什么",
+                "怎么",
+                "如何",
+                "what",
+                "why",
+                "how",
+                "who",
+                "when",
+                "where",
             ]
             is_fact_question = any(indicator in query.lower() for indicator in fact_indicators)
 

@@ -25,7 +25,9 @@ class SimpleVectorStore(VectorStore):
         self._index_by_source: dict[str, set[str]] = {}  # source -> entry_ids
         self._vector_norms: dict[str, float] = {}  # entry_id -> precomputed norm
 
-        logger.info(f"SimpleVectorStore '{name}' initialized (cache={'enabled' if enable_cache else 'disabled'}, index={'enabled' if enable_index else 'disabled'})")
+        logger.info(
+            f"SimpleVectorStore '{name}' initialized (cache={'enabled' if enable_cache else 'disabled'}, index={'enabled' if enable_index else 'disabled'})"
+        )
 
     def _add_to_index(self, entry: MemoryEntry) -> None:
         if not self._enable_index:
@@ -356,11 +358,13 @@ class SimpleVectorStore(VectorStore):
             }
 
         if not entries:
-            stats.update({
-                "by_type": {},
-                "by_source": {},
-                "avg_importance": 0.0,
-            })
+            stats.update(
+                {
+                    "by_type": {},
+                    "by_source": {},
+                    "avg_importance": 0.0,
+                }
+            )
             return stats
 
         by_type = {}
@@ -372,10 +376,12 @@ class SimpleVectorStore(VectorStore):
             by_source[entry.source] = by_source.get(entry.source, 0) + 1
             total_importance += entry.importance
 
-        stats.update({
-            "by_type": by_type,
-            "by_source": by_source,
-            "avg_importance": total_importance / len(entries),
-        })
+        stats.update(
+            {
+                "by_type": by_type,
+                "by_source": by_source,
+                "avg_importance": total_importance / len(entries),
+            }
+        )
 
         return stats

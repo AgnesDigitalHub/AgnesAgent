@@ -16,20 +16,20 @@ logger = logging.getLogger(__name__)
 class TaskStatus(Enum):
     """任务状态"""
 
-    PENDING = auto()      # 等待执行
-    RUNNING = auto()      # 执行中
-    COMPLETED = auto()    # 已完成
-    FAILED = auto()       # 失败
-    SKIPPED = auto()      # 跳过
+    PENDING = auto()  # 等待执行
+    RUNNING = auto()  # 执行中
+    COMPLETED = auto()  # 已完成
+    FAILED = auto()  # 失败
+    SKIPPED = auto()  # 跳过
 
 
 class TaskPriority(Enum):
     """任务优先级"""
 
-    CRITICAL = 1    # 关键
-    HIGH = 2        # 高
-    NORMAL = 3      # 正常
-    LOW = 4         # 低
+    CRITICAL = 1  # 关键
+    HIGH = 2  # 高
+    NORMAL = 3  # 正常
+    LOW = 4  # 低
 
 
 @dataclass
@@ -47,9 +47,9 @@ class Task:
     priority: TaskPriority = TaskPriority.NORMAL
 
     # 执行相关
-    tool_name: str | None = None          # 使用的工具
+    tool_name: str | None = None  # 使用的工具
     tool_params: dict[str, Any] = field(default_factory=dict)  # 工具参数
-    expected_output: str = ""             # 预期输出描述
+    expected_output: str = ""  # 预期输出描述
 
     # 依赖关系
     dependencies: list[str] = field(default_factory=list)  # 依赖的任务ID
@@ -219,9 +219,7 @@ class TaskGraph:
                 if tid in completed:
                     continue
                 task = self.tasks[tid]
-                deps_satisfied = all(
-                    dep in completed for dep in task.dependencies
-                )
+                deps_satisfied = all(dep in completed for dep in task.dependencies)
                 if deps_satisfied:
                     group.append(tid)
 

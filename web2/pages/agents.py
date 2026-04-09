@@ -1,13 +1,10 @@
 """
-Agent Management Page (Placeholder)
+Agent Management Page - AMIS Schema
 """
 
-from nicegui import ui
 
+def get_agents_schema() -> dict:
+    """获取 Agent 管理页面 schema"""
+    from web2.schemas.agents import get_agents_schema as _get_schema
 
-def show_agents():
-    """Show Agent Management page"""
-    with ui.card().classes("w-full"):
-        ui.label("Agent 管理").classes("text-2xl font-bold")
-        ui.separator()
-        ui.label("🚧 此功能正在开发中，敬请期待...").classes("text-lg text-gray-500")
+    return _get_schema()

@@ -173,7 +173,9 @@ class ReActEngine:
             # 执行工具调用
             for call in calls:
                 tool_calls.append(call)
-                steps.append(ReActStep(StepType.ACTION, f"调用 {call.name}", {"tool": call.name, "params": call.parameters}))
+                steps.append(
+                    ReActStep(StepType.ACTION, f"调用 {call.name}", {"tool": call.name, "params": call.parameters})
+                )
 
                 # 检查是否是危险操作
                 if self._is_dangerous_operation(call.name):
@@ -301,19 +303,19 @@ class ReActEngine:
 
         return f"{base_prompt}\n\n{react_instructions}"
 
-    def _parse_tool_calls(
-        self, content: str, response: Any, use_native_fc: bool
-    ) -> list[ToolCall]:
+    def _parse_tool_calls(self, content: str, response: Any, use_native_fc: bool) -> list[ToolCall]:
         """解析工具调用"""
         calls = []
 
         if use_native_fc and response and hasattr(response, "tool_calls"):
             # 原生 Function Calling
             for tc in response.tool_calls or []:
-                calls.append(ToolCall(
-                    name=tc.function.name,
-                    parameters=json.loads(tc.function.arguments),
-                ))
+                calls.append(
+                    ToolCall(
+                        name=tc.function.name,
+                        parameters=json.loads(tc.function.arguments),
+                    )
+                )
         else:
             # 文本解析模式
             calls = self._parse_text_tool_calls(content)

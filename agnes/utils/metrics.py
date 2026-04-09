@@ -208,9 +208,7 @@ class MetricsCollector:
             logger.info("Histograms:")
             for name, stats in report["histograms"].items():
                 logger.info(
-                    f"  {name}: avg={stats['avg']:.2f}, "
-                    f"min={stats['min']}, max={stats['max']}, "
-                    f"count={stats['count']}"
+                    f"  {name}: avg={stats['avg']:.2f}, min={stats['min']}, max={stats['max']}, count={stats['count']}"
                 )
 
 

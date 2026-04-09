@@ -70,6 +70,7 @@ config/stats/*
 # Local IDE
 .vscode/
 .idea/
+.qwen/
 
 # User custom data - should not be uploaded
 data/**/*

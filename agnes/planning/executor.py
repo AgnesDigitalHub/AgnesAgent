@@ -20,9 +20,9 @@ logger = logging.getLogger(__name__)
 class ExecutionStrategy(Enum):
     """执行策略"""
 
-    SEQUENTIAL = auto()     # 顺序执行
-    PARALLEL = auto()       # 并行执行（无依赖的任务）
-    ADAPTIVE = auto()       # 自适应（根据任务特性决定）
+    SEQUENTIAL = auto()  # 顺序执行
+    PARALLEL = auto()  # 并行执行（无依赖的任务）
+    ADAPTIVE = auto()  # 自适应（根据任务特性决定）
 
 
 @dataclass
