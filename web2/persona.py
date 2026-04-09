@@ -27,6 +27,8 @@ class PersonaMetadata:
 
     version: str = "1.0"
     tags: list[str] = Field(default_factory=list)
+    author: str = ""
+    category: str = ""
 
 
 @dataclass
@@ -36,6 +38,8 @@ class PersonaIdentity:
     name: str
     bio: str = ""
     core_values: list[str] = Field(default_factory=list)
+    role: str = ""
+    traits: list[str] = Field(default_factory=list)
 
 
 @dataclass
@@ -46,6 +50,8 @@ class PersonaStylistics:
     vocabulary: str = ""
     sentence_structure: str = ""
     emojis: bool = False
+    use_emojis: bool = False
+    language_style: list[str] = Field(default_factory=list)
 
 
 @dataclass
@@ -53,6 +59,9 @@ class PersonaForbidden:
     """禁止行为定义"""
 
     forbidden_behaviors: list[str] = Field(default_factory=list)
+    forbidden_topics: list[str] = Field(default_factory=list)
+    knowledge_boundaries: list[str] = Field(default_factory=list)
+    interaction_rules: str = ""
 
 
 @dataclass

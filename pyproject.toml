@@ -25,6 +25,13 @@ dependencies = [
     # Telemetry
     "opentelemetry-api>=1.24.0",
     "opentelemetry-sdk>=1.24.0",
+    # Database
+    "numpy>=1.24.0",
+    # Audio Processing (Core)
+    "sounddevice>=0.4.6",
+    "soundfile>=0.12.1",
+    # System Monitoring
+    "psutil>=6.0.0",
 ]
 
 [project.optional-dependencies]
@@ -32,7 +39,6 @@ dependencies = [
 memory = [
     "chromadb>=0.5.0",
     "sentence-transformers>=2.0.0",
-    "numpy>=1.24.0",
 ]
 # Audio Processing
 audio = [
@@ -46,10 +52,6 @@ gameautomation = [
     "easyocr>=1.7.0",
     "pynput>=1.7.6",
     "pillow>=10.0.0",
-]
-# System Monitoring
-monitor = [
-    "psutil>=6.0.0",
 ]
 # All optional dependencies
 all = [

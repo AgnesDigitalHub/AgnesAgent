@@ -152,14 +152,8 @@ class MetricsCollector:
         self._timers[key].record(duration_ms)
 
     @contextmanager
-def measure_time(self, name: str, tags: dict[str, str] | None = None):
-        """
-        上下文管理器：测量代码块执行时间
-
-        Example:
-            >>> with metrics.measure_time("llm_call"):
-            ...     result = await llm.chat(messages)
-        """
+    def measure_time(self, name: str, tags: dict[str, str] | None = None):
+        """上下文管理器：测量代码块执行时间"""
         start = time.perf_counter()
         try:
             yield
