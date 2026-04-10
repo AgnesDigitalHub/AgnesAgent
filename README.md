@@ -43,8 +43,8 @@ AgnesAgent 是一个开源 AI Agent 框架，支持多 LLM 提供商、工具调
 | **长期记忆** | 向量存储 + 语义检索 | ✅ |
 | **任务规划** | ReAct 推理 + 任务分解 | ✅ |
 | **性能优化** | 缓存/索引/连接池/监控 | ✅ |
-| **屏幕感知** | 屏幕捕获 + OCR | 🔶 |
-| **输入控制** | 键盘/鼠标自动化 | 🔶 |
+| **屏幕感知** | 屏幕捕获 + OCR | ✅ |
+| **输入控制** | 键盘/鼠标自动化 | ✅ |
 
 ---
 
@@ -78,8 +78,8 @@ cp config/config.yaml.example config/config.yaml
 ### 启动
 
 ```bash
-# Web UI
-uv run main.py --web2
+# 启动 Web 控制台
+uv run main.py --server
 
 # 交互式对话
 uv run main.py --chat
@@ -93,9 +93,9 @@ uv run main.py --chat
 
 | 阶段 | 目标 | 状态 |
 |------|------|------|
-| Phase 1 | 核心能力：记忆、规划、MCP、浏览器自动化 | 🚧 |
-| Phase 2 | 体验升级：UI 深化、人格市场、多模态 | 📋 |
-| Phase 3 | 工程化：测试覆盖、CI/CD、Docker 部署 | 📋 |
+| Phase 1 | 核心能力：记忆、规划、MCP、屏幕感知、输入控制 | ✅ |
+| Phase 2 | 体验升级：UI 深化、人格市场、浏览器自动化、多模态 | 🚧 |
+| Phase 3 | 工程化：测试覆盖 40%+、CI/CD、Docker 部署 | 📋 |
 | Phase 4 | v1.0 发布：文档站、生态建设 | 📋 |
 
 ---

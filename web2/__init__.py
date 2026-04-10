@@ -1,5 +1,5 @@
 """
-Agnes Web2 - NiceGUI Web Console
+Agnes Web2 - AMIS Web Console
 """
 
 __version__ = "0.1.0"

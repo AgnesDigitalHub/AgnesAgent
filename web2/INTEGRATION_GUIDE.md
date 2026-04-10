@@ -1,8 +1,8 @@
-# Web2 界面集成指南
+# Web 界面集成指南
 
 ## 概述
 
-已成功为 AgnesAgent 项目创建了基于 NiceGUI 的新 web2 界面，风格参考 AstrBot 项目的简洁现代设计。
+AgnesAgent 使用基于 AMIS 的 Web 界面作为唯一的可视化控制台，风格参考 AstrBot 项目的简洁现代设计。
 
 ## 功能模块
 
@@ -23,18 +23,15 @@ web2 包含以下页面模块：
 
 ## 使用方法
 
-### 方式 1：通过主服务器访问（推荐）
+### 启动 Web 控制台
 
-1. 启动 AgnesAgent 服务器：
-   ```bash
-   uv run main.py --server
-   ```
+```bash
+uv run main.py --server
+```
 
-2. 在浏览器中访问：
-   - 旧界面 (amis): http://127.0.0.1:8000/
-   - 新界面 (NiceGUI): http://127.0.0.1:8000/web2
+然后在浏览器中访问：http://127.0.0.1:8000
 
-### 方式 2：独立运行 web2
+### 独立运行（开发调试用）
 
 ```bash
 cd web2
@@ -46,26 +43,24 @@ uv run app.py
 ## 项目结构
 
 ```
-web2/
-├── __init__.py          # 模块初始化
-├── app.py               # 主应用入口
-├── INTEGRATION_GUIDE.md # 本指南
-├── static/              # 静态资源目录（待创建）
-└── pages/               # 页面模块
-    ├── __init__.py
-    ├── dashboard.py
-    ├── models.py
-    ├── chat.py
-    ├── agents.py
-    ├── prompts.py
-    ├── tools.py
-    ├── knowledge.py
-    ├── workflows.py
-    ├── logs.py
-    ├── publish.py
-    ├── users.py
-    └── settings.py
+web2/                      # Web 控制台（唯一界面）
+├── __init__.py            # 模块初始化
+├── app.py                 # FastAPI + AMIS 主应用
+├── app_config.py          # AMIS 应用配置
+├── INTEGRATION_GUIDE.md   # 本指南
+├── config/                # 配置文件
+│   └── app.yaml           # AMIS 应用配置
+├── schemas/               # AMIS Schema 定义
+│   ├── agents.py
+│   ├── chat.py
+│   ├── dashboard.py
+│   ├── models.py
+│   └── ...
+├── pages/                 # 页面模块（遗留，待清理）
+└── static/                # 静态资源
 ```
+
+> **注意**: `web2/pages/` 目录包含遗留的 NiceGUI 代码，当前使用 `web2/schemas/` 下的 AMIS Schema 配置。
 
 ## API 集成
 
@@ -75,35 +70,16 @@ web2 界面与 AgnesAgent 的 API 完全集成：
 - 聊天功能通过 WebSocket `/ws/chat` 实现
 - OpenAI 兼容 API 在 `/v1/` 下提供
 
-## 已修复的问题
-
-1. **导入问题** - 修复了相对导入错误，支持从不同目录运行
-2. **API 错误** - 修复了 `is_active` 字段验证错误，确保返回 boolean 类型
-3. **NiceGUI 组件兼容性** - 修复了 `ui.card_text` 和 `ui.card_actions` 不存在的问题
-
-## 新功能
-
-1. **侧边栏切换按钮** - 在左上角添加了菜单按钮，可展开/收起侧边栏
-2. **响应式布局** - 根据侧边栏状态自动调整内容区域的边距
-
 ## 设计风格
 
-- 使用 NiceGUI 组件库
+- 使用 AMIS (百度开源前端低代码框架)
 - 采用现代化的 Material Design 风格
 - 左侧导航栏 + 顶部标题栏布局
 - 卡片式设计展示内容
 - 响应式布局，支持移动端
 
-## 下一步
-
-1. 完善各个页面的功能实现
-2. 添加实时数据更新
-3. 完善表单验证
-4. 添加更多交互功能
-5. 优化用户体验
-
 ## 技术栈
 
-- **后端**: Python + FastAPI + NiceGUI
-- **前端**: NiceGUI (基于 Vue 3 + Quasar)
+- **后端**: Python + FastAPI
+- **前端**: AMIS (百度开源前端低代码框架，基于 React)
 - **API**: RESTful + WebSocket
