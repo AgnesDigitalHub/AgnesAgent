@@ -3046,6 +3046,123 @@ def register_api_routes(app: FastAPI, api_prefix: str = "/api"):
         ]
         return {"items": results, "total": len(results)}
 
+    # ============ Prompt IDE API ============
+
+    # 请求模型
+    class CreatePromptRequest(BaseModel):
+        name: str
+        description: str = ""
+        content: str
+        tags: list[str] = []
+
+    class UpdatePromptRequest(BaseModel):
+        name: str | None = None
+        description: str | None = None
+        content: str | None = None
+        tags: list[str] | None = None
+
+    class TestPromptRequest(BaseModel):
+        content: str
+        variables: dict[str, str] = {}
+
+    # 初始化存储
+    from web2.models import PromptStore
+    prompt_store = PromptStore(Path("config/settings/prompts.json"))
+
+    @app.get(f"{api_prefix}/prompts/list")
+    async def list_prompts(page: int = 1, perPage: int = 12):
+        """获取 Prompt 列表"""
+        prompts = prompt_store.list_prompts()
+        # 按更新时间倒序
+        prompts.sort(key=lambda p: p.updated_at, reverse=True)
+
+        total = len(prompts)
+        start = (page - 1) * perPage
+        end = start + perPage
+
+        items = [p.to_dict() for p in prompts[start:end]]
+        return {"items": items, "total": total}
+
+    @app.get(f"{api_prefix}/prompts/get/{{prompt_id}}")
+    async def get_prompt(prompt_id: str):
+        """获取单个 Prompt"""
+        prompt = prompt_store.get_prompt(prompt_id)
+        if not prompt:
+            raise HTTPException(status_code=404, detail="Prompt 不存在")
+        return {"data": prompt.to_dict()}
+
+    @app.post(f"{api_prefix}/prompts/create")
+    async def create_prompt(req: CreatePromptRequest):
+        """创建 Prompt"""
+        prompt = prompt_store.create_prompt(
+            name=req.name,
+            description=req.description,
+            content=req.content,
+            tags=req.tags,
+        )
+        return {"success": True, "id": prompt.id, "data": prompt.to_dict()}
+
+    @app.put(f"{api_prefix}/prompts/update/{{prompt_id}}")
+    async def update_prompt(prompt_id: str, req: UpdatePromptRequest):
+        """更新 Prompt"""
+        updates = req.dict(exclude_unset=True)
+        prompt = prompt_store.update_prompt(prompt_id, **updates)
+        if not prompt:
+            raise HTTPException(status_code=404, detail="Prompt 不存在")
+        return {"success": True, "data": prompt.to_dict()}
+
+    @app.delete(f"{api_prefix}/prompts/delete/{{prompt_id}}")
+    async def delete_prompt(prompt_id: str):
+        """删除 Prompt"""
+        success = prompt_store.delete_prompt(prompt_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Prompt 不存在")
+        return {"success": True}
+
+    @app.post(f"{api_prefix}/prompts/bulk-delete")
+    async def bulk_delete_prompts(request: dict[str, Any]):
+        """批量删除 Prompt"""
+        ids = request.get("ids", [])
+        if not ids:
+            raise HTTPException(status_code=400, detail="未提供要删除的ID列表")
+
+        deleted = 0
+        for prompt_id in ids:
+            if prompt_store.delete_prompt(prompt_id):
+                deleted += 1
+        return {"success": True, "deleted_count": deleted}
+
+    @app.post(f"{api_prefix}/prompts/test")
+    async def test_prompt(req: TestPromptRequest):
+        """测试 Prompt"""
+        # 替换变量
+        content = req.content
+        for var_name, var_value in req.variables.items():
+            content = content.replace(f"{{{{{var_name}}}}}", var_value)
+
+        # 调用 LLM 测试
+        try:
+            from agnes.core import get_llm_provider
+            llm = get_llm_provider()
+            if not llm:
+                return {"success": False, "error": "未配置 LLM"}
+
+            response = await llm.generate(content)
+            return {
+                "success": True,
+                "rendered_prompt": content,
+                "response": response,
+            }
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    @app.get(f"{api_prefix}/prompts/search")
+    async def search_prompts(q: str = "", tags: str = ""):
+        """搜索 Prompt"""
+        tag_list = tags.split(",") if tags else []
+        results = prompt_store.search_prompts(q, tag_list)
+        return {"items": [p.to_dict() for p in results], "total": len(results)}
+
 
 def create_fastapi_app(api_prefix: str = "/api") -> FastAPI:
     """创建 FastAPI 应用并注册 AMIS 路由"""
