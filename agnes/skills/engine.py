@@ -5,15 +5,15 @@ Skill 调用引擎
 """
 
 import asyncio
-import logging
 import time
 from typing import Any
 
 from agnes.mcp.client import MCPClient
 from agnes.skills.base import SkillResult
 from agnes.skills.registry import SkillRegistry, registry
+from agnes.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SkillCallEngine:

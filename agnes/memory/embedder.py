@@ -9,15 +9,15 @@
 """
 
 import hashlib
-import logging
 import math
 import re
 from abc import ABC, abstractmethod
 from typing import Any
 
 from agnes.utils.cache import LRUCache
+from agnes.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class Embedder(ABC):

@@ -1,6 +1,5 @@
 """Agent 协调器 - 整合 LLM、Skills、Memory、Persona、Planning"""
 
-import logging
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
 from typing import Any, Callable
@@ -16,8 +15,9 @@ from agnes.skills.engine import SkillCallEngine
 from agnes.telemetry.instrumentation import instrument_llm_call, instrument_skill_call
 from agnes.telemetry.tracer import start_span
 from agnes.utils import metrics, timed
+from agnes.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass

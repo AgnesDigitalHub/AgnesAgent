@@ -1,9 +1,8 @@
-from collections.abc import AsyncGenerator
+from agnes.providers.base import BaseProvider
+from agnes.core import LLMResponse
 
-from agnes.core import LLMProvider, LLMResponse
 
-
-class OpenAIProvider(LLMProvider):
+class OpenAIProvider(BaseProvider):
     """OpenAI LLM Provider，支持自定义 base_url 和连接池管理"""
 
     # 类级别的客户端缓存，用于连接复用
@@ -81,39 +80,6 @@ class OpenAIProvider(LLMProvider):
     def clear_client_cache(cls) -> None:
         """清除客户端缓存（用于资源释放）"""
         cls._client_cache.clear()
-
-    async def generate(
-        self,
-        prompt: str,
-        system_prompt: str | None = None,
-        temperature: float = 0.7,
-        max_tokens: int | None = None,
-        **kwargs,
-    ) -> LLMResponse:
-        messages = []
-        if system_prompt:
-            messages.append({"role": "system", "content": system_prompt})
-        messages.append({"role": "user", "content": prompt})
-
-        return await self.chat(messages=messages, temperature=temperature, max_tokens=max_tokens, **kwargs)
-
-    async def generate_stream(
-        self,
-        prompt: str,
-        system_prompt: str | None = None,
-        temperature: float = 0.7,
-        max_tokens: int | None = None,
-        **kwargs,
-    ) -> AsyncGenerator[str, None]:
-        messages = []
-        if system_prompt:
-            messages.append({"role": "system", "content": system_prompt})
-        messages.append({"role": "user", "content": prompt})
-
-        async for token in self.chat_stream(
-            messages=messages, temperature=temperature, max_tokens=max_tokens, **kwargs
-        ):
-            yield token
 
     async def chat(
         self,

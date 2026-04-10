@@ -12,6 +12,10 @@ from typing import Any
 
 import psutil
 
+from agnes.utils.logger import get_logger
+
+logger = get_logger("agnes.stats")
+
 
 class StatsManager:
     """统计数据管理器"""
@@ -53,7 +57,7 @@ class StatsManager:
                     data = json.load(f)
                     self.stats.update(data)
         except Exception as e:
-            print(f"加载统计数据失败: {e}")
+            logger.error(f"加载统计数据失败: {e}")
 
     def _save_stats(self):
         """保存统计数据"""
@@ -62,7 +66,7 @@ class StatsManager:
                 with open(self.storage_path, "w", encoding="utf-8") as f:
                     json.dump(self.stats, f, indent=2, ensure_ascii=False)
         except Exception as e:
-            print(f"保存统计数据失败: {e}")
+            logger.error(f"保存统计数据失败: {e}")
 
     def increment_messages(self, count: int = 1):
         """增加消息计数"""
@@ -124,7 +128,7 @@ class StatsManager:
                 "system_percent": system_memory.percent,
             }
         except Exception as e:
-            print(f"获取内存使用情况失败: {e}")
+            logger.error(f"获取内存使用情况失败: {e}")
             return {"process_rss": 0, "process_vms": 0, "system_total": 0, "system_available": 0, "system_percent": 0}
 
     def get_all_stats(self) -> dict[str, Any]:

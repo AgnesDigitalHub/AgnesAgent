@@ -6,6 +6,10 @@ MCP 市场页面 Schema - 用户友好的MCP管理
 import json
 from pathlib import Path
 
+from agnes.utils.logger import get_logger
+
+logger = get_logger("agnes.schemas")
+
 
 def _load_mcp_market():
     """从JSON文件加载MCP市场数据"""
@@ -13,11 +17,11 @@ def _load_mcp_market():
     try:
         with open(market_file, encoding="utf-8") as f:
             data = json.load(f)
-            print(f"[MCP] 成功加载市场数据: {len(data)} 条记录")
+            logger.info(f"[MCP] 成功加载市场数据: {len(data)} 条记录")
             return data
     except Exception as e:
-        print(f"[MCP] 加载MCP市场数据失败: {e}")
-        print(f"[MCP] 尝试加载的文件路径: {market_file}")
+        logger.error(f"[MCP] 加载MCP市场数据失败: {e}")
+        logger.error(f"[MCP] 尝试加载的文件路径: {market_file}")
         return []
 
 

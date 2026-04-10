@@ -71,7 +71,7 @@ config/stats/*
 .vscode/
 .idea/
 .qwen/
-
+plans/
 # User custom data - should not be uploaded
 data/**/*
 !data/README.md

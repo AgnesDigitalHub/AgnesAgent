@@ -4,12 +4,13 @@ Dashboard Page - 使用 python-amis schema
 
 from nicegui import ui
 
+from agnes.utils.logger import get_logger
+
+logger = get_logger("agnes.web2.dashboard")
+
 
 def show_dashboard():
     """Show Dashboard page with python-amis schema"""
-    # 对于 nicegui 集成，我们仍然保留原生实现，
-    # 但如果需要 amis 渲染，可以通过 iframe 或 API 返回 schema
-    # 当前保持 nicegui 原生实现
     import httpx
 
     async def load_status():
@@ -20,7 +21,7 @@ def show_dashboard():
                 if response.status_code == 200:
                     return response.json()
         except Exception as e:
-            print(f"Failed to load status: {e}")
+            logger.error(f"Failed to load status: {e}")
         return None
 
     with ui.card().classes("w-full"):

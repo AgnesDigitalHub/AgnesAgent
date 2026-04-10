@@ -7,6 +7,10 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from agnes.utils.logger import get_logger
+
+logger = get_logger("agnes.audio")
+
 try:
     import sounddevice as sd
 
@@ -117,7 +121,7 @@ class AudioRecorder:
     def _audio_callback(self, indata, frames, time, status):
         """录音回调函数"""
         if status:
-            print(f"Audio status: {status}", file=sys.stderr)
+            logger.warning(f"Audio status: {status}")
 
         audio_data = indata.copy().flatten()
         self._audio_queue.put(audio_data)

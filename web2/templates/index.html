@@ -5,51 +5,14 @@
     <title>Agnes Agent 控制台</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <!-- 强力CSS补丁，强制把侧边栏"抠"出来 -->
+    <!-- 基础布局样式 -->
     <style>
-        /* 1. 强力布局补丁：确保容器不坍塌 */
+        /* 确保容器不坍塌 */
         html, body, #root, .amis-Layout {
             height: 100vh !important;
             margin: 0;
             padding: 0;
             overflow: hidden;
-        }
-
-        /* 2. 强力显色：强制侧边栏文字、图标为白色 */
-        .amis-Layout-aside,
-        .amis-AsideNav,
-        .amis-AsideNav-item,
-        .amis-AsideNav-item a,
-        .amis-AsideNav-item-label {
-            color: rgba(255, 255, 255, 0.9) !important; /* 强制白字 */
-            visibility: visible !important;
-            opacity: 1 !important;
-            display: block !important;
-        }
-
-        /* 3. 强制背景：防止和背景混在一起 */
-        .amis-Layout-aside {
-            background-color: #1a212d !important; /* 深蓝色背景 */
-            min-width: 220px !important;
-        }
-
-        /* 4. 强制图标库加载失败时的占位 */
-        .amis-AsideNav-item i:before {
-            content: "•" !important; /* 如果图标加载不出来，显示一个小圆点 */
-            color: #00bcd4;
-            margin-right: 8px;
-        }
-
-        /* 5. 确保链接有高度，能点动 */
-        .amis-AsideNav-item a {
-            padding: 10px 15px !important;
-            text-decoration: none !important;
-        }
-
-        /* 6. 高亮当前选中的菜单 */
-        .amis-AsideNav-item.is-active {
-            background: #242e3e !important;
-            border-left: 3px solid #00bcd4 !important;
         }
     </style>
 
@@ -58,6 +21,125 @@
     <link rel="stylesheet" href="https://unpkg.com/amis@6.10.0/sdk/helper.css" />
     <link rel="stylesheet" href="https://unpkg.com/amis@6.10.0/sdk/iconfont.css" />
     <script src="https://unpkg.com/amis@6.10.0/sdk/sdk.js"></script>
+
+    <!-- 二次元主题样式（必须在AMIS之后加载才能覆盖） -->
+    <link rel="stylesheet" href="/static/css/anime-theme.css" />
+
+    <!-- 二次元主题覆盖样式 -->
+    <style>
+        /* 覆盖 AMIS 默认样式，应用二次元主题 */
+        
+        /* 侧边栏 - 纯色粉色 */
+        .amis-Layout-aside {
+            background: #ffb6c1 !important;
+            border-right: none !important;
+        }
+
+        /* 侧边栏菜单项 */
+        .amis-AsideNav-item a,
+        .nav-link {
+            display: block !important;
+            padding: 12px 20px !important;
+            color: rgba(255, 255, 255, 0.85) !important;
+            border-radius: 0 20px 20px 0 !important;
+            margin: 2px 8px !important;
+            text-decoration: none !important;
+            transition: all 0.2s ease !important;
+        }
+
+        .amis-AsideNav-item a:hover,
+        .nav-link:hover {
+            background: rgba(255, 182, 193, 0.15) !important;
+            color: white !important;
+        }
+
+        .amis-AsideNav-item.is-active a,
+        .amis-AsideNav-item.is-active .nav-link {
+            background: rgba(255, 182, 193, 0.25) !important;
+            border-left: 3px solid #ffb6c1 !important;
+            color: white !important;
+        }
+
+        /* 主内容区域背景 - 深黄色 */
+        .amis-Layout-content {
+            background: #f5e6a3 !important;
+        }
+
+        /* 卡片样式 - 萌系圆角 */
+        .amis-Card {
+            border-radius: 16px !important;
+            border: 1px solid #ffe4e1 !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+        }
+
+        .amis-Card:hover {
+            box-shadow: 0 4px 12px rgba(255, 182, 193, 0.15) !important;
+        }
+
+        /* 按钮样式 - 柔和渐变 */
+        .amis-Button--primary {
+            background: linear-gradient(135deg, #ffb6c1, #ffc0cb) !important;
+            border: none !important;
+            border-radius: 20px !important;
+            box-shadow: 0 2px 8px rgba(255, 182, 193, 0.3) !important;
+        }
+
+        .amis-Button--primary:hover {
+            transform: translateY(-1px) !important;
+            box-shadow: 0 4px 12px rgba(255, 182, 193, 0.4) !important;
+        }
+
+        /* 表格样式 */
+        .amis-Table {
+            border-radius: 12px !important;
+            overflow: hidden !important;
+        }
+
+        .amis-Table th {
+            background: #f8f4ff !important;
+            color: #7a7a7a !important;
+            font-weight: 600 !important;
+        }
+
+        /* 输入框样式 */
+        .amis-Form-control {
+            border-radius: 12px !important;
+            border: 1px solid #e0d6d6 !important;
+            transition: all 0.2s ease !important;
+        }
+
+        .amis-Form-control:focus {
+            border-color: #ffb6c1 !important;
+            box-shadow: 0 0 0 3px rgba(255, 182, 193, 0.15) !important;
+        }
+
+        /* 标签样式 */
+        .amis-Tag {
+            border-radius: 20px !important;
+            padding: 4px 12px !important;
+        }
+
+        /* 加载动画 - 樱花 */
+        .amis-Spinner {
+            border-color: #ffb6c1 !important;
+            border-top-color: transparent !important;
+        }
+
+        /* 页面标题 */
+        .amis-Page-title {
+            color: #4a4a4a !important;
+            font-weight: 600 !important;
+        }
+
+        /* 面包屑导航 */
+        .amis-Breadcrumb {
+            color: #999 !important;
+        }
+
+        .amis-Breadcrumb-item:hover {
+            color: #ff85a2 !important;
+        }
+    </style>
 </head>
 <body>
     <div id="root"></div>
@@ -99,20 +181,27 @@
                     <div style="display: flex; height: 100vh; margin: 0; padding: 0;">
                         <!-- 原生侧边栏 -->
                         <div class="amis-Layout-aside" style="
-                            background-color: #1a212d;
                             width: 220px;
                             min-width: 220px;
                             height: 100%;
                             overflow-y: auto;
                             flex-shrink: 0;
+                            background: #ffb6c1;
                         ">
                             <div style="
                                 padding: 20px 15px;
-                                border-bottom: 1px solid #2c3e50;
+                                border-bottom: 1px solid rgba(255,255,255,0.2);
                                 color: white;
                                 font-size: 18px;
                                 font-weight: bold;
-                            ">${finalAppConfig.brandName}</div>
+                                text-align: center;
+                            ">
+                                <img src="/static/assets/images/placeholders/icon-mascot.svg"
+                                     alt="Mascot"
+                                     style="width: 64px; height: 64px; margin-bottom: 8px; display: block; margin-left: auto; margin-right: auto;"
+                                     onerror="this.style.display='none'">
+                                ${finalAppConfig.brandName}
+                            </div>
                             <nav style="padding: 10px 0;">
                 `;
 
@@ -153,14 +242,7 @@
                             const pageName = p.url.replace(/^\//, '');
                             html += `
                                 <div class="amis-AsideNav-item" style="margin: 2px 0; padding-left: ${indent * 15}px;">
-                                    <a href="javascript:void(0);" data-page-name="${pageName}" data-page-url="${p.url}" style="
-                                        display: block;
-                                        padding: 12px 20px;
-                                        color: rgba(255,255,255,0.85);
-                                        text-decoration: none;
-                                        transition: background-color 0.2s;
-                                    " onmouseover="this.style.backgroundColor='#242e3e'"
-                                      onmouseout="this.style.backgroundColor='transparent'">
+                                    <a href="javascript:void(0);" data-page-name="${pageName}" data-page-url="${p.url}" class="nav-link">
                                         ${icon ? `<i class="${icon}" style="margin-right: 8px;"></i>` : ''}
                                         <span>${p.label}</span>
                                     </a>
@@ -174,14 +256,7 @@
                 // 在最顶部添加首页按钮（跳转到 /）
                 navHtml += `
                     <div class="amis-AsideNav-item" style="margin: 2px 0;">
-                        <a href="javascript:void(0);" data-page-name="index" data-page-url="/" style="
-                            display: block;
-                            padding: 12px 20px;
-                            color: rgba(255,255,255,0.85);
-                            text-decoration: none;
-                            transition: background-color 0.2s;
-                        " onmouseover="this.style.backgroundColor='#242e3e'"
-                          onmouseout="this.style.backgroundColor='transparent'">
+                        <a href="javascript:void(0);" data-page-name="index" data-page-url="/" class="nav-link">
                             <i class="fa fa-home" style="margin-right: 8px;"></i>
                             <span>首页</span>
                         </a>
@@ -200,7 +275,7 @@
                             flex: 1;
                             height: 100%;
                             overflow-y: auto;
-                            background-color: #f5f5f5;
+                            background: #f5e6a3;
                             padding: 20px;
                         ">
                         </div>

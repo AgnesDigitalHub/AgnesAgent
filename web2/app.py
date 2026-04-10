@@ -23,10 +23,13 @@ sys.path.insert(0, str(root_dir))
 from agnes.core import LLMProvider
 from agnes.providers import OllamaProvider, OpenAIProvider
 from agnes.skills import SkillResult, registry
+from agnes.utils.logger import get_logger
 from web2.app_config import get_app_config, get_built_amis_app
 from web2.models import ProfileStore
 from web2.persona import PersonaEngine, PersonaStore
 from web2.stats_manager import get_stats_manager
+
+logger = get_logger("agnes.web2")
 
 
 def read_index_html() -> str:
@@ -1633,7 +1636,7 @@ def register_api_routes(app: FastAPI, api_prefix: str = "/api"):
         try:
             connected = await conn.connect()
         except Exception as e:
-            print(f"连接失败: {e}")
+            logger.error(f"连接失败: {e}")
 
         return {
             "success": True,

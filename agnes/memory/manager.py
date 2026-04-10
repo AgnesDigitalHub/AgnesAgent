@@ -9,7 +9,6 @@
 5. 与 Agent 的上下文集成
 """
 
-import logging
 import uuid
 from datetime import datetime, timedelta
 from typing import Any
@@ -17,8 +16,9 @@ from typing import Any
 from agnes.memory.base import MemoryEntry, VectorStore
 from agnes.memory.embedder import Embedder, SimpleEmbedder
 from agnes.memory.simple_store import SimpleVectorStore
+from agnes.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class MemoryManager:

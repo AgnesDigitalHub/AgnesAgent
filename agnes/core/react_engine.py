@@ -4,7 +4,6 @@ ReAct (Reasoning + Acting) 推理引擎
 """
 
 import json
-import logging
 import re
 from dataclasses import dataclass, field
 from enum import Enum, auto
@@ -13,8 +12,9 @@ from typing import Any, AsyncGenerator
 from agnes.core.chat_history import ChatHistory
 from agnes.skills.base import SkillResult
 from agnes.skills.engine import SkillCallEngine
+from agnes.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class StepType(Enum):

@@ -317,12 +317,12 @@ class TaskDecomposer:
         task_description: str,
         context: dict[str, Any] | None = None,
     ) -> TaskGraph:
-        """基于LLM的智能分解"""
-        # TODO: 实现LLM驱动的任务分解
-        # 1. 构建分解提示词
-        # 2. 调用LLM获取子任务列表
-        # 3. 解析依赖关系
-        # 4. 构建任务图
+        """基于LLM的智能分解
+
+        当前实现：使用基于规则的分解作为回退方案
+        未来可扩展：集成LLM进行更智能的任务分解
+        """
+        # NOTE: 当前使用规则分解作为实现，LLM驱动的智能分解可作为未来增强
         return self._rule_based_decompose(task_description, context)
 
     def decompose_with_template(

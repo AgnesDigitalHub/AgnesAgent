@@ -13,6 +13,9 @@ from typing import Any
 import yaml
 
 from agnes.persona.core import Persona, PersonaConstraints, PersonaIdentity, PersonaStylistics
+from agnes.utils.logger import get_logger
+
+logger = get_logger("agnes.persona")
 
 
 class PersonaLoader:
@@ -249,6 +252,6 @@ class PersonaLoader:
                     persona = cls.from_file(file_path)
                     personas.append(persona)
                 except Exception as e:
-                    print(f"Failed to load {file_path}: {e}")
+                    logger.error(f"Failed to load {file_path}: {e}")
 
         return personas

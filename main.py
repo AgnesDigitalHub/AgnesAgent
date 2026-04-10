@@ -523,7 +523,6 @@ async def main():
         action="store_true",
         help="Skip provider selection menu (use config directly)",
     )
-    parser.add_argument("--web", action="store_true", help="Start old web server (deprecated)")
     parser.add_argument(
         "--no-server", action="store_true", help="Do not start Agnes Server (default is to start server)"
     )
@@ -559,16 +558,7 @@ async def main():
 
         if args.chat:
             await interactive_chat(agent)
-        elif args.web:
-            try:
-                from agnes.web_server import start_web_server
-
-                await start_web_server(agent, args.host, args.port)
-            except ImportError as e:
-                print(f"Web 模块导入失败: {e}")
-                print("请使用 'uv sync' 或 'pip install -e .' 安装所有依赖")
-                return
-        elif args.web2 or not any([args.chat, args.web, args.no_server]):
+        elif args.web2 or not any([args.chat, args.no_server]):
             # 启动 Web2 Amis SPA 控制台（默认行为）
             try:
                 import threading
@@ -596,6 +586,13 @@ async def main():
                     allow_methods=["*"],
                     allow_headers=["*"],
                 )
+
+                # 挂载 web2 静态文件（必须在 include_router 之前，避免被兜底路由拦截）
+                from fastapi.staticfiles import StaticFiles
+
+                static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web2", "static")
+                if os.path.exists(static_dir):
+                    main_app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
                 # 添加favicon路由
                 from fastapi.responses import FileResponse
@@ -665,7 +662,6 @@ async def main():
             print("  (默认)          启动 Web2 控制台")
             print("  --web2           启动 Web2 Amis SPA 控制台")
             print("  --chat           交互式对话模式")
-            print("  --web            启动旧版 Web 服务器 (已弃用)")
             print("  --config FILE    指定配置文件")
             print("  --no-select      跳过 provider 选择菜单")
             print("  --no-browser     不自动打开浏览器")

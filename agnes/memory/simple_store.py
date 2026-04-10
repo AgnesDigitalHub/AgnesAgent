@@ -1,13 +1,13 @@
 """内存向量存储，支持缓存和索引加速"""
 
-import logging
 import math
 from typing import Any
 
 from agnes.memory.base import MemoryEntry, VectorStore
 from agnes.utils.cache import LRUCache
+from agnes.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SimpleVectorStore(VectorStore):

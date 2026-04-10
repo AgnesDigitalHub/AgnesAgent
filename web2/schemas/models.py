@@ -5,6 +5,10 @@
 import json
 from pathlib import Path
 
+from agnes.utils.logger import get_logger
+
+logger = get_logger("agnes.schemas")
+
 
 def _load_schema():
     """从JSON文件加载schema"""
@@ -13,7 +17,7 @@ def _load_schema():
         with open(schema_file, encoding="utf-8") as f:
             return json.load(f)
     except Exception as e:
-        print(f"[models_schema] 加载失败: {e}")
+        logger.error(f"[models_schema] 加载失败: {e}")
         return {}
 
 
